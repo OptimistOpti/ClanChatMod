@@ -1,0 +1,23 @@
+package com.optimistopti.clanchat.network;
+
+public enum ClanAction {
+	// --- C2S ---
+	SEND_MESSAGE,
+	CREATE_CLAN,
+	INVITE,
+	ACCEPT_INVITE,
+	DECLINE_INVITE,
+	KICK,
+	SET_ROLE,
+	LEAVE,
+	DISBAND,
+	REQUEST_STATE,
+
+	// --- S2C ---
+	CLAN_STATE,
+	NO_CLAN,
+	CHAT_MESSAGE,
+	CHAT_HISTORY,
+	INVITE_RECEIVED,
+	SYSTEM_NOTICE
+}

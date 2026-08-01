@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "clanchat",
+	"version": "${version}",
+	"name": "ClanChat",
+	"description": "Полноценная система кланов с красивым чатом в стиле Discord/Telegram: роли, инвайты, вложения (координаты, инвентарь, эндер-сундук, предмет в руке, статус здоровья).",
+	"authors": [
+		"OptimistOpti"
+	],
+	"contact": {
+		"sources": "https://github.com/OptimistOpti/ClanChatMod",
+		"issues": "https://github.com/OptimistOpti/ClanChatMod/issues"
+	},
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.optimistopti.clanchat.ClanChatMod"
+		],
+		"client": [
+			"com.optimistopti.clanchat.client.ClanChatModClient"
+		],
+		"modmenu": [
+			"com.optimistopti.clanchat.client.config.ClanChatModMenuIntegration"
+		]
+	},
+	"mixins": [],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}
