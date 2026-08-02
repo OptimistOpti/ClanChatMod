@@ -29,6 +29,10 @@ public final class ClanGson {
 
 				@Override
 				public UUID read(JsonReader in) throws IOException {
+					if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
+						in.nextNull();
+						return null;
+					}
 					return UUID.fromString(in.nextString());
 				}
 			})
