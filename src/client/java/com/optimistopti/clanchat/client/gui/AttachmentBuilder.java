@@ -24,7 +24,7 @@ public final class AttachmentBuilder {
 		if (player == null) {
 			return null;
 		}
-		String dimensionId = player.level().dimension().location().toString();
+		String dimensionId = player.level().dimension().identifier().toString();
 		Attachment.CoordinatesData data = new Attachment.CoordinatesData(
 				label, dimensionId, player.getX(), player.getY(), player.getZ());
 		return new Attachment(com.optimistopti.clanchat.chat.AttachmentType.COORDINATES, ClanGson.INSTANCE.toJson(data));
@@ -44,9 +44,11 @@ public final class AttachmentBuilder {
 		if (player == null) {
 			return null;
 		}
-		ItemSnapshot[] snapshots = player.getInventory().items.stream()
-				.map(AttachmentBuilder::toSnapshot)
-				.toArray(ItemSnapshot[]::new);
+		var inv = player.getInventory();
+		ItemSnapshot[] snapshots = new ItemSnapshot[inv.getContainerSize()];
+		for (int i = 0; i < snapshots.length; i++) {
+			snapshots[i] = toSnapshot(inv.getItem(i));
+		}
 		return new Attachment(com.optimistopti.clanchat.chat.AttachmentType.INVENTORY, ClanGson.INSTANCE.toJson(snapshots));
 	}
 
