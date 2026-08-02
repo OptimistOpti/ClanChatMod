@@ -52,7 +52,7 @@ public final class ClanChatNetworking {
 	public static void registerServerReceivers() {
 		ServerPlayNetworking.registerGlobalReceiver(ClanChatC2SPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
-			player.getServer().execute(() -> handleIncoming(player, payload.json()));
+			ClanChatMod.getServer().execute(() -> handleIncoming(player, payload.json()));
 		});
 
 		// Как только игрок зашёл на сервер (или в одиночную игру) — присылаем ему актуальное
@@ -101,7 +101,7 @@ public final class ClanChatNetworking {
 					Clan clan = manager.getClanOf(player.getUUID());
 					manager.disbandClan(player);
 					if (clan != null) {
-						broadcastStateToClanMembers(clan, manager, player.getServer());
+						broadcastStateToClanMembers(clan, manager, ClanChatMod.getServer());
 					}
 				}
 				case REQUEST_STATE -> sendFullState(player, manager);
@@ -181,7 +181,7 @@ public final class ClanChatNetworking {
 					&& clan.getMembers().get(memberUuid).getRole() != ClanRole.LEADER) {
 				continue;
 			}
-			ServerPlayer recipient = player.getServer().getPlayerList().getPlayer(memberUuid);
+			ServerPlayer recipient = ClanChatMod.getServer().getPlayerList().getPlayer(memberUuid);
 			if (recipient != null) {
 				sendMessage(recipient, message);
 			}
@@ -194,7 +194,7 @@ public final class ClanChatNetworking {
 	}
 
 	private static void handleInvite(ServerPlayer player, ClanManager manager, InviteC2S data) throws ClanActionException {
-		ServerPlayer target = player.getServer().getPlayerList().getPlayerByName(data.targetName);
+		ServerPlayer target = ClanChatMod.getServer().getPlayerList().getPlayerByName(data.targetName);
 		if (target == null) {
 			throw new ClanActionException("Игрок с ником '" + data.targetName + "' не найден онлайн.");
 		}
@@ -207,7 +207,7 @@ public final class ClanChatNetworking {
 
 	private static void handleAcceptInvite(ServerPlayer player, ClanManager manager) throws ClanActionException {
 		Clan clan = manager.acceptInvite(player);
-		broadcastStateToClanMembers(clan, manager, player.getServer());
+		broadcastStateToClanMembers(clan, manager, ClanChatMod.getServer());
 	}
 
 	private static void handleKick(ServerPlayer player, ClanManager manager, TargetUuidC2S data) throws ClanActionException {
@@ -215,8 +215,8 @@ public final class ClanChatNetworking {
 		UUID targetUuid = UUID.fromString(data.targetUuid);
 		manager.kick(player, targetUuid);
 		if (clan != null) {
-			broadcastStateToClanMembers(clan, manager, player.getServer());
-			ServerPlayer kicked = player.getServer().getPlayerList().getPlayer(targetUuid);
+			broadcastStateToClanMembers(clan, manager, ClanChatMod.getServer());
+			ServerPlayer kicked = ClanChatMod.getServer().getPlayerList().getPlayer(targetUuid);
 			if (kicked != null) {
 				sendFullState(kicked, manager);
 			}
@@ -227,7 +227,7 @@ public final class ClanChatNetworking {
 		Clan clan = manager.getClanOf(player.getUUID());
 		manager.setRole(player, UUID.fromString(data.targetUuid), ClanRole.valueOf(data.role));
 		if (clan != null) {
-			broadcastStateToClanMembers(clan, manager, player.getServer());
+			broadcastStateToClanMembers(clan, manager, ClanChatMod.getServer());
 		}
 	}
 
