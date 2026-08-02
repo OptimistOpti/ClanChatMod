@@ -80,6 +80,7 @@ public final class BackendConnection {
 						if (last) {
 							String message = buffer.toString();
 							buffer.setLength(0);
+							ClanChatMod.LOGGER.info("ClanChat backend: <- {}", message);
 							try {
 								onMessage.accept(message);
 							} catch (Exception e) {
@@ -137,6 +138,8 @@ public final class BackendConnection {
 			return;
 		}
 		Envelope envelope = new Envelope(action, Envelope.toDataObject(dataDto));
-		ws.sendText(envelope.toJson(), true);
+		String json = envelope.toJson();
+		ClanChatMod.LOGGER.info("ClanChat backend: -> {}", json);
+		ws.sendText(json, true);
 	}
 }

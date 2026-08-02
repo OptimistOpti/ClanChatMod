@@ -117,6 +117,7 @@ function handleEnvelope(ws, envelope) {
 	}
 
 	const identity = requireIdentity(ws);
+	console.log(`[ClanChat backend] <- ${identity.name}: ${action}`, action === 'SEND_MESSAGE' ? data.content : '');
 
 	switch (action) {
 		case 'SEND_MESSAGE':
@@ -237,6 +238,7 @@ function handleSendMessage(identity, data) {
 
 	store.addMessage(clan.id, message);
 
+	let delivered = 0;
 	for (const uuid of Object.keys(clan.members)) {
 		if (channel === 'WHISPER' && uuid !== identity.uuid && uuid !== whisperTargetUuid) {
 			continue;
@@ -245,6 +247,8 @@ function handleSendMessage(identity, data) {
 				&& !store.hasPermission(clan, uuid, 'SEND_OFFICER_CHAT')) {
 			continue;
 		}
+		if (connectedByUuid.has(uuid)) delivered++;
 		sendToUuid(uuid, 'CHAT_MESSAGE', message);
 	}
+	console.log(`[ClanChat backend] сообщение в клане ${clan.name} доставлено ${delivered} из ${Object.keys(clan.members).length} онлайн-участников`);
 }
