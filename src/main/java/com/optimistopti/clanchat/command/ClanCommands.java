@@ -128,7 +128,7 @@ public final class ClanCommands {
 		ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
 		try {
 			manager().kick(player, target.getUUID());
-			ctx.getSource().sendSuccess(() -> Component.literal("Игрок " + target.getGameProfile().getName() + " исключён из клана."), false);
+			ctx.getSource().sendSuccess(() -> Component.literal("Игрок " + target.getName().getString() + " исключён из клана."), false);
 			return 1;
 		} catch (ClanActionException e) {
 			ctx.getSource().sendFailure(Component.literal(e.getMessage()));
@@ -149,7 +149,7 @@ public final class ClanCommands {
 		ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
 		try {
 			manager().setRole(player, target.getUUID(), role);
-			ctx.getSource().sendSuccess(() -> Component.literal("Роль " + target.getGameProfile().getName() + " изменена на " + role.name() + "."), false);
+			ctx.getSource().sendSuccess(() -> Component.literal("Роль " + target.getName().getString() + " изменена на " + role.name() + "."), false);
 			return 1;
 		} catch (ClanActionException e) {
 			ctx.getSource().sendFailure(Component.literal(e.getMessage()));

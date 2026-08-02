@@ -83,11 +83,11 @@ public class ClanManager {
 			}
 		}
 
-		Clan clan = new Clan(UUID.randomUUID(), name, tag, color, founder.getUUID(), founder.getGameProfile().getName(), System.currentTimeMillis());
+		Clan clan = new Clan(UUID.randomUUID(), name, tag, color, founder.getUUID(), founder.getName().getString(), System.currentTimeMillis());
 		clansById.put(clan.getId(), clan);
 		membership.put(founder.getUUID(), clan.getId());
 		storage.save(clan);
-		ClanChatMod.LOGGER.info("Игрок {} создал клан '{}' [{}]", founder.getGameProfile().getName(), name, tag);
+		ClanChatMod.LOGGER.info("Игрок {} создал клан '{}' [{}]", founder.getName().getString(), name, tag);
 		return clan;
 	}
 
@@ -101,7 +101,7 @@ public class ClanManager {
 		}
 		clansById.remove(clan.getId());
 		storage.delete(clan.getId());
-		ClanChatMod.LOGGER.info("Клан '{}' распущен игроком {}", clan.getName(), actor.getGameProfile().getName());
+		ClanChatMod.LOGGER.info("Клан '{}' распущен игроком {}", clan.getName(), actor.getName().getString());
 	}
 
 	// ---------------------------------------------------------------- invites
@@ -118,7 +118,7 @@ public class ClanManager {
 			throw new ClanActionException("Нельзя пригласить самого себя.");
 		}
 		ClanInvite invite = new ClanInvite(clan.getId(), clan.getName(), actor.getUUID(),
-				actor.getGameProfile().getName(), target.getUUID(), System.currentTimeMillis());
+				actor.getName().getString(), target.getUUID(), System.currentTimeMillis());
 		pendingInvites.put(target.getUUID(), invite);
 	}
 
@@ -136,7 +136,7 @@ public class ClanManager {
 			throw new ClanActionException("Этот клан больше не существует.");
 		}
 		clan.getMembers().put(player.getUUID(),
-				new ClanMember(player.getUUID(), player.getGameProfile().getName(), ClanRole.MEMBER, System.currentTimeMillis()));
+				new ClanMember(player.getUUID(), player.getName().getString(), ClanRole.MEMBER, System.currentTimeMillis()));
 		membership.put(player.getUUID(), clan.getId());
 		pendingInvites.remove(player.getUUID());
 		storage.save(clan);
@@ -210,7 +210,7 @@ public class ClanManager {
 		if (clan != null) {
 			ClanMember member = clan.getMembers().get(player.getUUID());
 			if (member != null) {
-				member.setLastKnownName(player.getGameProfile().getName());
+				member.setLastKnownName(player.getName().getString());
 			}
 		}
 	}
