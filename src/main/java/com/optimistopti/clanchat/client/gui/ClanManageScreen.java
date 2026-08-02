@@ -28,6 +28,7 @@ public class ClanManageScreen extends Screen {
 
 	private final Screen parent;
 	private EditBox inviteBox;
+	private int lastSeenStateVersion = -1;
 
 	public ClanManageScreen(Screen parent) {
 		super(Component.literal("Участники клана"));
@@ -36,6 +37,7 @@ public class ClanManageScreen extends Screen {
 
 	@Override
 	protected void init() {
+		lastSeenStateVersion = ClientClanState.INSTANCE.getStateVersion();
 		Clan clan = ClientClanState.INSTANCE.getClan();
 		int centerX = this.width / 2;
 		int y = this.height / 2 - 110;
@@ -90,7 +92,8 @@ public class ClanManageScreen extends Screen {
 		TargetUuidC2S dto = new TargetUuidC2S();
 		dto.targetUuid = member.getUuid().toString();
 		ClanChatModClient.sendToServer(ClanAction.KICK, dto);
-		this.minecraft.setScreen(new ClanManageScreen(parent));
+		// Экран сам перестроится в tick(), как только придёт обновлённый CLAN_STATE —
+		// не пересоздаём его тут же со старыми данными.
 	}
 
 	private void promoteDemote(ClanMember member) {
@@ -98,7 +101,6 @@ public class ClanManageScreen extends Screen {
 		dto.targetUuid = member.getUuid().toString();
 		dto.role = member.getRole() == ClanRole.OFFICER ? ClanRole.MEMBER.name() : ClanRole.OFFICER.name();
 		ClanChatModClient.sendToServer(ClanAction.SET_ROLE, dto);
-		this.minecraft.setScreen(new ClanManageScreen(parent));
 	}
 
 	private void invite() {
@@ -109,6 +111,20 @@ public class ClanManageScreen extends Screen {
 		dto.targetName = inviteBox.getValue().trim();
 		ClanChatModClient.sendToServer(ClanAction.INVITE, dto);
 		inviteBox.setValue("");
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		int currentVersion = ClientClanState.INSTANCE.getStateVersion();
+		if (currentVersion != lastSeenStateVersion) {
+			String preservedInvite = inviteBox != null ? inviteBox.getValue() : null;
+			this.clearWidgets();
+			this.init();
+			if (preservedInvite != null && inviteBox != null) {
+				inviteBox.setValue(preservedInvite);
+			}
+		}
 	}
 
 	@Override

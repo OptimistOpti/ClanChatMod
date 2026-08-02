@@ -11,10 +11,16 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Единственный источник правды на клиенте о состоянии клана игрока и чата.
  * Заполняется исключительно из S2C-пакетов, GUI только читает.
+ * <p>
+ * {@link #getStateVersion()} растёт при любом изменении — экраны сверяют его в своём
+ * {@code tick()} и перестраивают виджеты, если он вырос с последней отрисовки.
+ * Без этого, например, экран создания клана после ответа сервера так и продолжал бы
+ * показывать "клана ещё нет", пока игрок не закроет и не откроет чат заново.
  */
 public final class ClientClanState {
 
@@ -26,11 +32,16 @@ public final class ClientClanState {
 	private final List<SystemNoticeS2C> systemNotices = new ArrayList<>();
 	/** Личка группируется отдельно от прочих каналов, по собеседнику. */
 	private final Map<UUID, List<ChatMessage>> whisperThreads = new java.util.HashMap<>();
+	private final AtomicInteger stateVersion = new AtomicInteger();
 
 	private ClientClanState() {
 		for (ChatChannelType type : ChatChannelType.values()) {
 			messagesByChannel.put(type, new ArrayList<>());
 		}
+	}
+
+	public int getStateVersion() {
+		return stateVersion.get();
 	}
 
 	public Clan getClan() {
@@ -42,6 +53,7 @@ public final class ClientClanState {
 		if (clan == null) {
 			clearMessages();
 		}
+		stateVersion.incrementAndGet();
 	}
 
 	public boolean hasClan() {
@@ -69,6 +81,9 @@ public final class ClientClanState {
 		} else {
 			messagesByChannel.get(message.channel()).add(message);
 		}
+		// Намеренно НЕ трогаем stateVersion: MessageListWidget читает сообщения "вживую"
+		// через Supplier при каждой отрисовке, полная пересборка экрана тут не нужна и
+		// сбрасывала бы текст, который игрок в этот момент печатает.
 	}
 
 	public List<ChatMessage> getMessages(ChatChannelType channel) {
@@ -89,10 +104,12 @@ public final class ClientClanState {
 
 	public void setPendingInvite(InviteReceivedS2C invite) {
 		this.pendingInvite = invite;
+		stateVersion.incrementAndGet();
 	}
 
 	public void clearPendingInvite() {
 		this.pendingInvite = null;
+		stateVersion.incrementAndGet();
 	}
 
 	public List<SystemNoticeS2C> getSystemNotices() {
@@ -104,5 +121,6 @@ public final class ClientClanState {
 		while (systemNotices.size() > 50) {
 			systemNotices.remove(0);
 		}
+		stateVersion.incrementAndGet();
 	}
 }

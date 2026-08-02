@@ -34,6 +34,7 @@ public class ClanChatScreen extends Screen {
 
 	private EditBox inputBox;
 	private MessageListWidget messageList;
+	private int lastSeenStateVersion = -1;
 
 	public ClanChatScreen(Screen parent) {
 		this(parent, ChatChannelType.CLAN, null);
@@ -48,6 +49,8 @@ public class ClanChatScreen extends Screen {
 
 	@Override
 	protected void init() {
+		lastSeenStateVersion = ClientClanState.INSTANCE.getStateVersion();
+
 		Clan clan = ClientClanState.INSTANCE.getClan();
 		if (clan == null) {
 			initNoClanView();
@@ -117,9 +120,27 @@ public class ClanChatScreen extends Screen {
 		}
 	}
 
+	@Override
+	public void tick() {
+		super.tick();
+		int currentVersion = ClientClanState.INSTANCE.getStateVersion();
+		if (currentVersion != lastSeenStateVersion) {
+			String preservedInput = inputBox != null ? inputBox.getValue() : null;
+			this.clearWidgets();
+			this.init();
+			if (preservedInput != null && inputBox != null) {
+				inputBox.setValue(preservedInput);
+			}
+		}
+	}
+
 	private void initNoClanView() {
 		int centerX = this.width / 2;
 		int y = this.height / 2 - 60;
+
+		if (!ClientClanState.INSTANCE.getSystemNotices().isEmpty()) {
+			y += 18; // место под последнее системное уведомление, рисуется в extractRenderState
+		}
 
 		var invite = ClientClanState.INSTANCE.getPendingInvite();
 		if (invite != null) {
@@ -208,6 +229,13 @@ public class ClanChatScreen extends Screen {
 		Clan clan = ClientClanState.INSTANCE.getClan();
 		String title = clan != null ? clan.getName() + " [" + clan.getTag() + "]" : "ClanChat";
 		graphics.text(this.font, title, this.width / 2 - 220, this.height / 2 - 145, 0xFFFFFFFF, true);
+
+		if (clan == null && !ClientClanState.INSTANCE.getSystemNotices().isEmpty()) {
+			var notices = ClientClanState.INSTANCE.getSystemNotices();
+			var last = notices.get(notices.size() - 1);
+			int color = "error".equals(last.level) ? 0xFFFF5555 : 0xFF55FF55;
+			graphics.text(this.font, last.text, this.width / 2 - 150, this.height / 2 - 78, color, false);
+		}
 	}
 
 	@Override
