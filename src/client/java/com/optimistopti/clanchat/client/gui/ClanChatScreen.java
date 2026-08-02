@@ -69,11 +69,11 @@ public class ClanChatScreen extends Screen {
 		sidebarY += 30;
 
 		this.addRenderableWidget(Button.builder(Component.literal("Участники"), b ->
-						this.minecraft.gui.setScreen(new ClanManageScreen(this)))
+						this.minecraft.setScreen(new ClanManageScreen(this)))
 				.bounds(panelX, sidebarY, SIDEBAR_WIDTH, 20).build());
 		sidebarY += 22;
 		this.addRenderableWidget(Button.builder(Component.literal("Настройки"), b ->
-						this.minecraft.gui.setScreen(new ClanChatConfigScreen(this)))
+						this.minecraft.setScreen(new ClanChatConfigScreen(this)))
 				.bounds(panelX, sidebarY, SIDEBAR_WIDTH, 20).build());
 
 		// --- Message list ---
@@ -134,14 +134,14 @@ public class ClanChatScreen extends Screen {
 			this.addRenderableWidget(Button.builder(Component.literal("Отклонить"), b -> {
 						ClanChatModClient.sendToServer(ClanAction.DECLINE_INVITE, new AcceptDeclineC2S());
 						ClientClanState.INSTANCE.clearPendingInvite();
-						this.minecraft.gui.setScreen(new ClanChatScreen(parent));
+						this.minecraft.setScreen(new ClanChatScreen(parent));
 					})
 					.bounds(centerX - 100, y, 200, 20).build());
 			y += 34;
 		}
 
 		this.addRenderableWidget(Button.builder(Component.literal("Создать клан"), b ->
-						this.minecraft.gui.setScreen(new ClanCreateScreen(this)))
+						this.minecraft.setScreen(new ClanCreateScreen(this)))
 				.bounds(centerX - 100, y, 200, 20).build());
 		y += 24;
 		this.addRenderableWidget(Button.builder(Component.literal("Закрыть"), b -> this.onClose())
@@ -152,7 +152,7 @@ public class ClanChatScreen extends Screen {
 		String suffix = this.channel == type ? " ◀" : "";
 		return Button.builder(Component.literal(label + suffix), b -> {
 					this.channel = type;
-					this.minecraft.gui.setScreen(new ClanChatScreen(parent, type, whisperTarget));
+					this.minecraft.setScreen(new ClanChatScreen(parent, type, whisperTarget));
 				})
 				.bounds(x, y, SIDEBAR_WIDTH, 20).build();
 	}
@@ -217,6 +217,6 @@ public class ClanChatScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		this.minecraft.gui.setScreen(parent);
+		this.minecraft.setScreen(parent);
 	}
 }

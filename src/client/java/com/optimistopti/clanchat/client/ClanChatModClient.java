@@ -55,9 +55,7 @@ public class ClanChatModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (OPEN_CHAT_KEY.consumeClick()) {
 				if (client.player != null && client.screen == null) {
-					// NOTE: см. комментарий в ClanChatConfigScreen про client.gui.setScreen(...)
-					// в 26.1.x — если это не скомпилируется, замените на client.setScreen(...).
-					client.gui.setScreen(new ClanChatScreen(null));
+					client.setScreen(new ClanChatScreen(null));
 				}
 			}
 		});
@@ -86,10 +84,10 @@ public class ClanChatModClient implements ClientModInitializer {
 				ClientClanState.INSTANCE.setPendingInvite(invite);
 				Minecraft mc = Minecraft.getInstance();
 				if (mc.player != null) {
-					mc.player.displayClientMessage(
+					mc.player.sendSystemMessage(
 							net.minecraft.network.chat.Component.literal(
 									"§e[ClanChat] " + invite.inviterName + " приглашает тебя в клан '" + invite.clanName + "'. Открой чат клана (клавиша по умолчанию C), чтобы принять."
-							), false);
+							));
 				}
 			}
 			case SYSTEM_NOTICE -> ClientClanState.INSTANCE.pushSystemNotice(envelope.dataAs(SystemNoticeS2C.class));

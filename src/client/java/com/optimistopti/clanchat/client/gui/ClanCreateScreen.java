@@ -47,7 +47,7 @@ public class ClanCreateScreen extends Screen {
 		dto.tag = tagBox.getValue().trim();
 		dto.color = 0xFFFFFF;
 		ClanChatModClient.sendToServer(ClanAction.CREATE_CLAN, dto);
-		this.minecraft.gui.setScreen(new ClanChatScreen(parent));
+		this.minecraft.setScreen(new ClanChatScreen(parent));
 	}
 
 	@Override
@@ -57,6 +57,6 @@ public class ClanCreateScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		this.minecraft.gui.setScreen(parent);
+		this.minecraft.setScreen(parent);
 	}
 }

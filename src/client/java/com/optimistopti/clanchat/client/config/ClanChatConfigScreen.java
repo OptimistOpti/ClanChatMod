@@ -73,10 +73,7 @@ public class ClanChatConfigScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		// NOTE: в 26.1.x открытие экранов переехало за поле `gui` (this.minecraft.gui.setScreen(...))
-		// вместо старого this.minecraft.setScreen(...). Если сборка ругается на этой строке —
-		// см. https://docs.fabricmc.net/develop/rendering/gui/custom-screens (Closing the Screen).
-		this.minecraft.gui.setScreen(parent);
+		this.minecraft.setScreen(parent);
 	}
 
 	@Override

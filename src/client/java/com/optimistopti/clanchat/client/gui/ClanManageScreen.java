@@ -74,12 +74,12 @@ public class ClanManageScreen extends Screen {
 
 		this.addRenderableWidget(Button.builder(Component.literal("Покинуть клан"), b -> {
 					ClanChatModClient.sendToServer(ClanAction.LEAVE, new AcceptDeclineC2S());
-					this.minecraft.gui.setScreen(parent);
+					this.minecraft.setScreen(parent);
 				})
 				.bounds(centerX - 180, y, 120, 20).build());
 		this.addRenderableWidget(Button.builder(Component.literal("Распустить клан"), b -> {
 					ClanChatModClient.sendToServer(ClanAction.DISBAND, new AcceptDeclineC2S());
-					this.minecraft.gui.setScreen(parent);
+					this.minecraft.setScreen(parent);
 				})
 				.bounds(centerX - 50, y, 120, 20).build());
 		this.addRenderableWidget(Button.builder(Component.literal("Назад"), b -> this.onClose())
@@ -90,7 +90,7 @@ public class ClanManageScreen extends Screen {
 		TargetUuidC2S dto = new TargetUuidC2S();
 		dto.targetUuid = member.getUuid().toString();
 		ClanChatModClient.sendToServer(ClanAction.KICK, dto);
-		this.minecraft.gui.setScreen(new ClanManageScreen(parent));
+		this.minecraft.setScreen(new ClanManageScreen(parent));
 	}
 
 	private void promoteDemote(ClanMember member) {
@@ -98,7 +98,7 @@ public class ClanManageScreen extends Screen {
 		dto.targetUuid = member.getUuid().toString();
 		dto.role = member.getRole() == ClanRole.OFFICER ? ClanRole.MEMBER.name() : ClanRole.OFFICER.name();
 		ClanChatModClient.sendToServer(ClanAction.SET_ROLE, dto);
-		this.minecraft.gui.setScreen(new ClanManageScreen(parent));
+		this.minecraft.setScreen(new ClanManageScreen(parent));
 	}
 
 	private void invite() {
@@ -124,6 +124,6 @@ public class ClanManageScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		this.minecraft.gui.setScreen(parent);
+		this.minecraft.setScreen(parent);
 	}
 }
