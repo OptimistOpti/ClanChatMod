@@ -39,7 +39,9 @@ dependencies {
 
 	// ModMenu integration for our config screen. Compile-time + runtime only,
 	// the mod works fine without ModMenu installed (see fabric.mod.json "depends" -> "modmenu" is optional).
-	modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+	// NOTE: было modImplementation, но в Loom 1.17.x (маппинги только Mojang, без Yarn-
+	// ремаппинга) отдельных mod-конфигураций больше нет — обычный implementation.
+	implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {
