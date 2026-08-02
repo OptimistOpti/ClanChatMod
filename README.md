@@ -33,39 +33,25 @@ ClanChat, либо через экран настроек мода в ModMenu).
 ./gradlew build
 ```
 
-Готовый джарник — в `build/libs/`.
+Готовый джарник — в `build.libs/`. Сборка проверена в CI (GitHub Actions, см. `.github/workflows/build.yml`) и **проходит зелёным**.
 
-## ⚠️ Известные риски / что стоит перепроверить при первой сборке
+## Что было исправлено при первой реальной сборке
 
-Этот код был написан **без доступа к Maven-репозиториям Mojang/Fabric** (песочница, в
-которой я работал, не может их резолвить), поэтому `./gradlew build` ни разу не
-запускался вживую. Плюс 26.1.x принёс реально крупные изменения в рендер-стеке GUI
-(`Screen#render` → `Screen#extractRenderState`, новый `GuiGraphicsExtractor`,
-`Minecraft#gui` как отдельный менеджер экранов вместо прямых методов на `Minecraft`).
-Все использованные здесь сигнатуры сверены с актуальной (июнь 2026) документацией
-docs.fabricmc.net и её reference-репозиторием, но при первой сборке в IDE стоит
-обратить внимание на:
+Изначальный код был написан без доступа к Maven-репозиториям Mojang/Fabric, поэтому
+несколько мест пришлось поправить по фидбеку CI (это нормальная часть работы с версией,
+где мэппинги совсем свежие):
 
-1. **`Minecraft#gui.setScreen(...)`** — используется во всех экранах
-   (`ClanChatScreen`, `ClanCreateScreen`, `ClanManageScreen`, `ClanChatConfigScreen`).
-   Подтверждено исходником из `fabric-docs`, но если у вас другая точка сборки —
-   возможно, потребуется заменить на `Minecraft.getInstance().setScreen(...)`.
-2. **`AttachmentBuilder`** (`src/client/.../gui/AttachmentBuilder.java`) — методы вроде
-   `player.getArmorValue()`, `player.getFoodData()`, `player.getEnderChestInventory()`,
-   `player.getInventory().items` — стабильные для маппингов Mojang много лет, но не
-   проверены на конкретно 26.1.2 живьём.
-3. **`MessageListWidget`** — нет автопереноса длинных строк по словам (используется
-   грубое обрезание по ширине). Если нужно — добавьте `Font#split(Component, int)` и
-   рисуйте построчно.
-4. Один момент архитектуры общей сети: весь протокол намеренно устроен как **два**
-   типа пакетов (`ClanChatC2SPayload` / `ClanChatS2CPayload`), каждый несёт JSON-конверт
-   `{"action": "...", "data": {...}}` (см. `Envelope`). Это сильно сокращает количество
-   мест, которые можно сломать при доработке протокола, ценой чуть большего трафика —
-   осознанный компромисс, не баг.
-
-Ничего из этого не должно быть серьёзной правкой — максимум пара переименований
-методов, если Mojang/Fabric что-то ещё передвинули в 26.1.2 относительно того, что
-показывает документация на момент написания.
+- `modImplementation` → `implementation` (в Fabric Loom 1.17.x, с официальными
+  Mojang-мэппингами без Yarn-ремаппинга, отдельных mod-конфигураций больше нет).
+- `ServerPlayer#server` — приватное поле; `MinecraftServer` теперь кэшируется в
+  `ClanChatMod` при старте сервера (`ClanChatMod.getServer()`).
+- `.getGameProfile().getName()` → `.getName().getString()`.
+- `Minecraft#setScreen(...)` — вызывается напрямую, без несуществующей обёртки `.gui`.
+- `Player#displayClientMessage(...)` → `Player#sendSystemMessage(...)` на клиенте.
+- `ResourceKey#location()` → `ResourceKey#identifier()` (переименован вслед за
+  `ResourceLocation` → `Identifier`).
+- Прямой доступ к приватному полю `Inventory#items` заменён на
+  `getContainerSize()`/`getItem(i)`.
 
 ## TODO / направления для развития
 
