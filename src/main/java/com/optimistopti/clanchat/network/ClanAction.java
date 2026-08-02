@@ -2,6 +2,7 @@ package com.optimistopti.clanchat.network;
 
 public enum ClanAction {
 	// --- C2S ---
+	IDENTIFY,
 	SEND_MESSAGE,
 	CREATE_CLAN,
 	INVITE,

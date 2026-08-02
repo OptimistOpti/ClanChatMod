@@ -5,24 +5,31 @@ import com.optimistopti.clanchat.chat.ChatMessage;
 import com.optimistopti.clanchat.clan.Clan;
 import com.optimistopti.clanchat.client.config.ClanChatConfig;
 import com.optimistopti.clanchat.client.gui.ClanChatScreen;
+import com.optimistopti.clanchat.network.BackendConnection;
 import com.optimistopti.clanchat.network.ClanAction;
 import com.optimistopti.clanchat.network.Envelope;
+import com.optimistopti.clanchat.network.OfflineUuid;
 import com.optimistopti.clanchat.network.dto.ChatHistoryS2C;
+import com.optimistopti.clanchat.network.dto.IdentifyC2S;
 import com.optimistopti.clanchat.network.dto.InviteReceivedS2C;
 import com.optimistopti.clanchat.network.dto.SystemNoticeS2C;
-import com.optimistopti.clanchat.network.payload.ClanChatC2SPayload;
-import com.optimistopti.clanchat.network.payload.ClanChatS2CPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import com.mojang.blaze3d.platform.InputConstants;
 import org.lwjgl.glfw.GLFW;
 
+/**
+ * Мод общается не с Minecraft-сервером, а с отдельным WebSocket-бэкендом
+ * (см. /backend в репозитории) — это позволяет ставить его как чисто клиентский мод
+ * на сервер с любым ядром (Paper/Spigot/whatever), без доступа к файлам сервера.
+ * Соединение к бэкенду не привязано к конкретному Minecraft-серверу: устанавливается
+ * при входе в любой мир (синглплеер тоже считается) и живёт, пока игрок не выйдет из мода.
+ */
 public class ClanChatModClient implements ClientModInitializer {
 
 	public static KeyMapping OPEN_CHAT_KEY;
@@ -42,14 +49,17 @@ public class ClanChatModClient implements ClientModInitializer {
 				category
 		));
 
-		ClientPlayNetworking.registerGlobalReceiver(ClanChatS2CPayload.TYPE, (payload, context) ->
-				context.client().execute(() -> handleIncoming(payload.json())));
+		BackendConnection.setOnMessage(ClanChatModClient::handleIncoming);
+		BackendConnection.setOnOpen(ClanChatModClient::identify);
 
-		// При выходе с сервера (или закрытии одиночной игры) очищаем клиентский кэш,
-		// чтобы не потащить данные предыдущего сервера на следующий.
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			ClientClanState.INSTANCE.setClan(null);
-			ClientClanState.INSTANCE.clearPendingInvite();
+		// Подключаемся при входе в любой мир — тут гарантированно есть mc.player для identify().
+		// Если соединение уже установлено (игрок телепортировался между серверами оставаясь
+		// в игре), повторно не переподключаемся.
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+			if (ClanChatConfig.INSTANCE.autoConnect && !ClanChatConfig.INSTANCE.serverUrl.isBlank()
+					&& !BackendConnection.isConnected()) {
+				connect();
+			}
 		});
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -61,12 +71,30 @@ public class ClanChatModClient implements ClientModInitializer {
 		});
 	}
 
+	/** Подключиться к бэкенду, используя адрес из настроек. Вызывается и из экрана настроек. */
+	public static void connect() {
+		BackendConnection.connect(ClanChatConfig.INSTANCE.serverUrl);
+	}
+
+	private static void identify() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) {
+			return; // соединение открыто вручную из настроек до захода в мир — представимся позже
+		}
+		String name = mc.player.getName().getString();
+		IdentifyC2S dto = new IdentifyC2S();
+		dto.name = name;
+		dto.uuid = OfflineUuid.fromName(name).toString();
+		BackendConnection.send(ClanAction.IDENTIFY, dto);
+		BackendConnection.send(ClanAction.REQUEST_STATE, new Object());
+	}
+
 	private static void handleIncoming(String json) {
 		Envelope envelope;
 		try {
 			envelope = Envelope.fromJson(json);
 		} catch (Exception e) {
-			ClanChatMod.LOGGER.warn("Некорректный пакет ClanChat от сервера: {}", e.toString());
+			ClanChatMod.LOGGER.warn("Некорректное сообщение от ClanChat backend: {}", e.toString());
 			return;
 		}
 
@@ -107,7 +135,6 @@ public class ClanChatModClient implements ClientModInitializer {
 	}
 
 	public static void sendToServer(ClanAction action, Object dataDto) {
-		Envelope envelope = new Envelope(action, Envelope.toDataObject(dataDto));
-		ClientPlayNetworking.send(new ClanChatC2SPayload(envelope.toJson()));
+		BackendConnection.send(action, dataDto);
 	}
 }

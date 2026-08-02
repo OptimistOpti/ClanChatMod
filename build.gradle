@@ -19,14 +19,8 @@ repositories {
 }
 
 loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"clanchat" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
+	// Мод целиком клиентский (см. environment: "client" в fabric.mod.json) —
+	// разделять на main/client sourceSets больше не требуется.
 }
 
 dependencies {

@@ -12,11 +12,8 @@
 		"issues": "https://github.com/OptimistOpti/ClanChatMod/issues"
 	},
 	"license": "MIT",
-	"environment": "*",
+	"environment": "client",
 	"entrypoints": {
-		"main": [
-			"com.optimistopti.clanchat.ClanChatMod"
-		],
 		"client": [
 			"com.optimistopti.clanchat.client.ClanChatModClient"
 		],
