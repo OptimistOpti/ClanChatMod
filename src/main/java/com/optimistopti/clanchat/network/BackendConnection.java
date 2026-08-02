@@ -62,6 +62,11 @@ public final class BackendConnection {
 				.buildAsync(URI.create(uri), new WebSocket.Listener() {
 					@Override
 					public void onOpen(WebSocket ws) {
+						// Важно: присваиваем поле здесь же, синхронно, а не только в future.whenComplete
+						// ниже — иначе identify() (вызываемый из onOpenCallback) мог попытаться
+						// отправить IDENTIFY раньше, чем webSocket вообще будет сохранён, и тихо
+						// проигнорировать отправку (см. проверку в send()).
+						webSocket = ws;
 						connected = true;
 						ClanChatMod.LOGGER.info("ClanChat backend: соединение установлено ({})", uri);
 						onStatusChange.accept("Подключено");
