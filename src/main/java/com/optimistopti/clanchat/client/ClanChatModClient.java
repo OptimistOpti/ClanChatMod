@@ -4,6 +4,7 @@ import com.optimistopti.clanchat.ClanChatMod;
 import com.optimistopti.clanchat.chat.ChatMessage;
 import com.optimistopti.clanchat.clan.Clan;
 import com.optimistopti.clanchat.client.config.ClanChatConfig;
+import com.optimistopti.clanchat.client.gui.ChatToastRenderer;
 import com.optimistopti.clanchat.client.gui.ClanChatScreen;
 import com.optimistopti.clanchat.network.BackendConnection;
 import com.optimistopti.clanchat.network.ClanAction;
@@ -17,6 +18,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
@@ -51,6 +54,9 @@ public class ClanChatModClient implements ClientModInitializer {
 
 		BackendConnection.setOnMessage(ClanChatModClient::handleIncoming);
 		BackendConnection.setOnOpen(ClanChatModClient::identify);
+
+		HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT,
+				Identifier.fromNamespaceAndPath(ClanChatMod.MOD_ID, "popup"), ChatToastRenderer::render);
 
 		// Подключаемся при входе в любой мир — тут гарантированно есть mc.player для identify().
 		// Если соединение уже установлено (игрок телепортировался между серверами оставаясь
@@ -105,6 +111,7 @@ public class ClanChatModClient implements ClientModInitializer {
 				ChatMessage message = envelope.dataAs(ChatMessage.class);
 				ClientClanState.INSTANCE.addMessage(message);
 				maybePlayNotificationSound(message);
+				maybeShowToast(message);
 			}
 			case CHAT_HISTORY -> ClientClanState.INSTANCE.setHistory(envelope.dataAs(ChatHistoryS2C.class).messages);
 			case INVITE_RECEIVED -> {
@@ -132,6 +139,14 @@ public class ClanChatModClient implements ClientModInitializer {
 			return; // не пищим на собственные сообщения
 		}
 		mc.player.playSound(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, 0.4f, 1.6f);
+	}
+
+	private static void maybeShowToast(ChatMessage message) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || message.senderUuid().equals(mc.player.getUUID())) {
+			return; // не уведомляем о собственных сообщениях
+		}
+		ChatToastRenderer.push(message.senderName(), message.content());
 	}
 
 	public static void sendToServer(ClanAction action, Object dataDto) {

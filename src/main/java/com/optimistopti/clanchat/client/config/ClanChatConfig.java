@@ -31,6 +31,18 @@ public class ClanChatConfig {
 	/** Подключаться автоматически при входе в мир, если адрес задан. */
 	public boolean autoConnect = true;
 
+	/** Масштаб текста и вложений в списке сообщений: 0.75 / 1.0 / 1.25 / 1.5 / 2.0. */
+	public float fontScale = 1.0f;
+	/** Отправлять сообщение по Enter (в дополнение к кнопке "Отправить"). */
+	public boolean sendOnEnter = true;
+
+	/** Показывать всплывающее уведомление о новом сообщении, когда чат закрыт. */
+	public boolean showPopupNotifications = true;
+	/** Масштаб всплывающего уведомления: 0.75 / 1.0 / 1.25 / 1.5. */
+	public float popupScale = 1.0f;
+	/** Угол экрана: TOP_LEFT / TOP_RIGHT / BOTTOM_LEFT / BOTTOM_RIGHT. */
+	public String popupPosition = "TOP_RIGHT";
+
 	public static void load() {
 		if (Files.exists(PATH)) {
 			try (var reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {

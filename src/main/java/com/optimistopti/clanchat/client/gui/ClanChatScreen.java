@@ -6,6 +6,7 @@ import com.optimistopti.clanchat.clan.Clan;
 import com.optimistopti.clanchat.clan.ClanMember;
 import com.optimistopti.clanchat.client.ClanChatModClient;
 import com.optimistopti.clanchat.client.ClientClanState;
+import com.optimistopti.clanchat.client.config.ClanChatConfig;
 import com.optimistopti.clanchat.client.config.ClanChatConfigScreen;
 import com.optimistopti.clanchat.client.gui.widget.MessageListWidget;
 import com.optimistopti.clanchat.network.ClanAction;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.UUID;
 
@@ -132,6 +134,16 @@ public class ClanChatScreen extends Screen {
 				inputBox.setValue(preservedInput);
 			}
 		}
+	}
+
+	@Override
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (ClanChatConfig.INSTANCE.sendOnEnter && inputBox != null && inputBox.isFocused()
+				&& (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
+			sendCurrentMessage();
+			return true;
+		}
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	private void initNoClanView() {
