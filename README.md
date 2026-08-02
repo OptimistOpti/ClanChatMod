@@ -59,11 +59,11 @@ ClanChat, либо через экран настроек мода в ModMenu �
 
 ```
 cd backend
-npm install
-npm start
+node server.js
 ```
 
-Подробности и деплой на Wispbyte — в [`backend/README.md`](backend/README.md).
+Зависимости уже в репозитории (`backend/node_modules/`), `npm install` не требуется —
+подробности и деплой на Wispbyte в [`backend/README.md`](backend/README.md).
 Протокол (весь набор действий) сверяется по `src/main/java/.../network/ClanAction.java`
 на стороне мода — при изменении протокола нужно поправить оба конца.
 
