@@ -52,7 +52,7 @@ public class ClanManageScreen extends Screen {
 		members.sort((a, b) -> Integer.compare(b.getRole().getRank(), a.getRole().getRank()));
 
 		for (ClanMember member : members) {
-			String label = member.getLastKnownName() + " — " + member.getRole().name();
+			String label = member.getLastKnownName() + " — " + roleLabel(member.getRole());
 			this.addRenderableWidget(Button.builder(Component.literal(label), b -> {})
 					.bounds(centerX - 180, y, 200, 20).build());
 
@@ -60,7 +60,7 @@ public class ClanManageScreen extends Screen {
 				this.addRenderableWidget(Button.builder(Component.literal("Кик"), b -> kick(member))
 						.bounds(centerX + 24, y, 40, 20).build());
 				this.addRenderableWidget(Button.builder(
-								Component.literal(member.getRole() == ClanRole.OFFICER ? "-> Участник" : "-> Офицер"),
+								Component.literal(member.getRole() == ClanRole.OFFICER ? "-> Участник" : "-> Заместитель"),
 								b -> promoteDemote(member))
 						.bounds(centerX + 68, y, 90, 20).build());
 			}
@@ -86,6 +86,14 @@ public class ClanManageScreen extends Screen {
 				.bounds(centerX - 50, y, 120, 20).build());
 		this.addRenderableWidget(Button.builder(Component.literal("Назад"), b -> this.onClose())
 				.bounds(centerX + 80, y, 100, 20).build());
+	}
+
+	private static String roleLabel(ClanRole role) {
+		return switch (role) {
+			case LEADER -> "Лидер";
+			case OFFICER -> "Заместитель";
+			case MEMBER -> "Участник";
+		};
 	}
 
 	private void kick(ClanMember member) {

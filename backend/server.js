@@ -192,7 +192,7 @@ function handleSendMessage(identity, data) {
 	const senderMember = clan.members[identity.uuid];
 
 	if (channel === 'OFFICERS' && senderMember.role !== 'LEADER' && !store.hasPermission(clan, identity.uuid, 'SEND_OFFICER_CHAT')) {
-		throw new ClanActionError('У тебя нет доступа к офицерскому чату.');
+		throw new ClanActionError('У тебя нет доступа к чату заместителей.');
 	}
 	if (channel === 'SYSTEM') {
 		throw new ClanActionError('Нельзя отправлять сообщения в системный канал.');

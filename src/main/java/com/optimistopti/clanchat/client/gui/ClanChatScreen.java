@@ -52,6 +52,7 @@ public class ClanChatScreen extends Screen {
 	@Override
 	protected void init() {
 		lastSeenStateVersion = ClientClanState.INSTANCE.getStateVersion();
+		ChatToastRenderer.onChatOpened();
 
 		Clan clan = ClientClanState.INSTANCE.getClan();
 		if (clan == null) {
@@ -68,7 +69,7 @@ public class ClanChatScreen extends Screen {
 		int sidebarY = panelY;
 		this.addRenderableWidget(channelButton("Клан", ChatChannelType.CLAN, panelX, sidebarY));
 		sidebarY += 22;
-		this.addRenderableWidget(channelButton("Офицеры", ChatChannelType.OFFICERS, panelX, sidebarY));
+		this.addRenderableWidget(channelButton("Заместители", ChatChannelType.OFFICERS, panelX, sidebarY));
 		sidebarY += 22;
 		this.addRenderableWidget(channelButton("Личные", ChatChannelType.WHISPER, panelX, sidebarY));
 		sidebarY += 30;

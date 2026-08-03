@@ -82,7 +82,11 @@ public class MessageListWidget extends AbstractWidget {
 		}
 
 		int textX = getX() + PADDING;
-		int cursorY = getY() + height - PADDING - (int) scrollOffset;
+		// scrollOffset=0 -> новые сообщения внизу (обычный вид чата). Рост scrollOffset
+		// сдвигает "якорь" (низ самого нового сообщения) ВНИЗ — за счёт этого при
+		// прокрутке в историю выше видны более старые сообщения, а не пустое место
+		// (было наоборот: якорь двигался вверх и открывал пустоту под последним сообщением).
+		int cursorY = getY() + height - PADDING + (int) scrollOffset;
 
 		// Рисуем снизу вверх (последнее сообщение внизу, как в любом мессенджере).
 		for (int i = messages.size() - 1; i >= 0; i--) {
@@ -279,7 +283,8 @@ public class MessageListWidget extends AbstractWidget {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		scrollOffset -= scrollY * (lineH() * 2);
+		// Колёсико "вверх" (scrollY > 0) уводит в историю — раскрывает более старые сообщения.
+		scrollOffset += scrollY * (lineH() * 2);
 		if (scrollOffset < 0) {
 			scrollOffset = 0;
 		}

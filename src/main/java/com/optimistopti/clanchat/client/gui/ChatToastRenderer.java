@@ -5,58 +5,55 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Iterator;
-
 /**
- * Небольшие всплывающие плашки "новое сообщение" в углу экрана — показываются только
- * когда {@link ClanChatScreen} не открыт (иначе сообщение и так видно в самом чате).
+ * Уведомление о новых сообщениях, когда {@link ClanChatScreen} не открыт: сначала
+ * несколько секунд показывается полная плашка с последним сообщением, затем она
+ * схлопывается в маленькую иконку со счётчиком непрочитанных — и остаётся, пока игрок
+ * не откроет чат (тогда счётчик сбрасывается, сообщения же считаются просмотренными).
+ * <p>
  * Регистрируется как HUD-слой перед ванильным чатом, см. {@code HudElementRegistry}
  * в {@link com.optimistopti.clanchat.client.ClanChatModClient}.
  */
 public final class ChatToastRenderer {
 
-	private static final long DURATION_MS = 5000;
-	private static final int MAX_VISIBLE = 3;
+	private static final long FULL_DISPLAY_MS = 4000;
 	private static final int BOX_WIDTH = 200;
 	private static final int BOX_HEIGHT = 28;
-	private static final int GAP = 4;
+	private static final int BADGE_SIZE = 20;
 	private static final int MARGIN = 8;
 
-	private record Toast(String sender, String preview, long expiresAt) {
-	}
-
-	private static final Deque<Toast> ACTIVE = new ArrayDeque<>();
+	private static int unreadCount = 0;
+	private static String lastSender = "";
+	private static String lastPreview = "";
+	private static long fullDisplayUntil = 0;
 
 	private ChatToastRenderer() {
 	}
 
 	public static void push(String sender, String content) {
-		String preview = content.length() > 40 ? content.substring(0, 40) + "..." : content;
-		ACTIVE.addFirst(new Toast(sender, preview, System.currentTimeMillis() + DURATION_MS));
-		while (ACTIVE.size() > MAX_VISIBLE) {
-			ACTIVE.removeLast();
-		}
+		unreadCount++;
+		lastSender = sender;
+		lastPreview = content.length() > 40 ? content.substring(0, 40) + "..." : content;
+		fullDisplayUntil = System.currentTimeMillis() + FULL_DISPLAY_MS;
+	}
+
+	/** Вызывается явно из {@link ClanChatScreen#init()} — гарантированно срабатывает при
+	 * открытии чата, независимо от того, продолжает ли вообще рендериться HUD-слой,
+	 * пока открыт GUI-экран (это по факту не гарантировано ни в одну, ни в другую сторону). */
+	public static void onChatOpened() {
+		unreadCount = 0;
+		fullDisplayUntil = 0;
 	}
 
 	public static void render(GuiGraphicsExtractor graphics, DeltaTracker tickCounter) {
-		if (!ClanChatConfig.INSTANCE.showPopupNotifications || ACTIVE.isEmpty()) {
-			return;
-		}
-		// Пока открыт сам чат клана — уведомления ни к чему, сообщение и так на экране.
+		// Чат открыт — все сообщения и так на виду, считаем прочитанными и ничего не рисуем.
 		if (Minecraft.getInstance().screen instanceof ClanChatScreen) {
+			if (unreadCount > 0) {
+				onChatOpened();
+			}
 			return;
 		}
-
-		long now = System.currentTimeMillis();
-		Iterator<Toast> it = ACTIVE.iterator();
-		while (it.hasNext()) {
-			if (it.next().expiresAt() <= now) {
-				it.remove();
-			}
-		}
-		if (ACTIVE.isEmpty()) {
+		if (!ClanChatConfig.INSTANCE.showPopupNotifications || unreadCount == 0) {
 			return;
 		}
 
@@ -66,21 +63,30 @@ public final class ChatToastRenderer {
 		boolean top = ClanChatConfig.INSTANCE.popupPosition.startsWith("TOP");
 		boolean left = ClanChatConfig.INSTANCE.popupPosition.endsWith("LEFT");
 
-		int boxW = Math.round(BOX_WIDTH * scale);
-		int boxH = Math.round(BOX_HEIGHT * scale);
-		int gap = Math.round(GAP * scale);
+		boolean showFull = System.currentTimeMillis() < fullDisplayUntil;
 
-		int x = left ? MARGIN : screenWidth - boxW - MARGIN;
-		int y = top ? MARGIN : screenHeight - boxH - MARGIN;
-		int step = top ? (boxH + gap) : -(boxH + gap);
+		if (showFull) {
+			int boxW = Math.round(BOX_WIDTH * scale);
+			int boxH = Math.round(BOX_HEIGHT * scale);
+			int x = left ? MARGIN : screenWidth - boxW - MARGIN;
+			int y = top ? MARGIN : screenHeight - boxH - MARGIN;
 
-		int i = 0;
-		for (Toast toast : ACTIVE) {
-			int boxY = y + step * i;
-			graphics.fill(x, boxY, x + boxW, boxY + boxH, 0xCC101418);
-			drawScaled(graphics, "\u2709 " + toast.sender(), x + Math.round(6 * scale), boxY + Math.round(5 * scale), 0xFF6FA8DC, scale);
-			drawScaled(graphics, toast.preview(), x + Math.round(6 * scale), boxY + Math.round(16 * scale), 0xFFE0E0E0, scale);
-			i++;
+			graphics.fill(x, y, x + boxW, y + boxH, 0xCC101418);
+			String header = unreadCount > 1 ? ("\u2709 " + lastSender + " (+" + (unreadCount - 1) + ")") : "\u2709 " + lastSender;
+			drawScaled(graphics, header, x + Math.round(6 * scale), y + Math.round(5 * scale), 0xFF6FA8DC, scale);
+			drawScaled(graphics, lastPreview, x + Math.round(6 * scale), y + Math.round(16 * scale), 0xFFE0E0E0, scale);
+		} else {
+			int badgeSize = Math.round(BADGE_SIZE * scale);
+			int x = left ? MARGIN : screenWidth - badgeSize - MARGIN;
+			int y = top ? MARGIN : screenHeight - badgeSize - MARGIN;
+
+			graphics.fill(x, y, x + badgeSize, y + badgeSize, 0xCC101418);
+			String count = unreadCount > 99 ? "99+" : String.valueOf(unreadCount);
+			String label = "\u2709" + count;
+			int textWidth = Minecraft.getInstance().font.width(label);
+			int textX = x + (badgeSize - Math.round(textWidth * scale)) / 2;
+			int textY = y + Math.round((badgeSize / scale - 8) / 2 * scale);
+			drawScaled(graphics, label, textX, textY, 0xFFFF5555, scale);
 		}
 	}
 
