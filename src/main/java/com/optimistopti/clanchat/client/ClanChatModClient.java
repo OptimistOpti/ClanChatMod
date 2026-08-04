@@ -71,6 +71,7 @@ public class ClanChatModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (OPEN_CHAT_KEY.consumeClick()) {
 				if (client.player != null && client.screen == null) {
+					com.optimistopti.clanchat.client.ScreenshotCapture.captureNow();
 					client.setScreen(new ClanChatScreen(null));
 				}
 			}

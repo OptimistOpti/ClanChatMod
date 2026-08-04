@@ -23,10 +23,8 @@ import java.util.function.Supplier;
 
 /**
  * Скроллируемый список сообщений в стиле мессенджера. Вложения рендерятся по-настоящему
- * (иконки предметов через {@code graphics.fakeItem(...)}, а не просто текстовой подписью).
- * <p>
- * NOTE: для простоты здесь нет автопереноса длинных строк по словам (Font#split) —
- * длинные сообщения обрезаются с "...". См. README, раздел "Известные упрощения".
+ * (иконки предметов через {@code graphics.fakeItem(...)}, а не просто текстовой подписью),
+ * длинные сообщения переносятся по словам ({@link #wrapText}).
  */
 public class MessageListWidget extends AbstractWidget {
 
@@ -34,7 +32,14 @@ public class MessageListWidget extends AbstractWidget {
 	private static final int PADDING = 6;
 	private static final int ITEM_SIZE = 18;
 	private static final int GRID_COLUMNS = 9;
+	private static final int SCREENSHOT_BOX_WIDTH = 100;
+	private static final int SCREENSHOT_BOX_HEIGHT = 56;
 	private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm");
+
+	private record ScreenshotHit(int x0, int y0, int x1, int y1, String dataJson) {
+	}
+
+	private final List<ScreenshotHit> screenshotHits = new java.util.ArrayList<>();
 
 	private final Supplier<List<ChatMessage>> messagesSupplier;
 	private final Font font;
@@ -50,6 +55,7 @@ public class MessageListWidget extends AbstractWidget {
 	@Override
 	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
 		graphics.fill(getX(), getY(), getX() + width, getY() + height, 0x88101014);
+		screenshotHits.clear();
 
 		float scale = ClanChatConfig.INSTANCE.fontScale;
 		int localWidth = (int) (width / scale);
@@ -58,7 +64,7 @@ public class MessageListWidget extends AbstractWidget {
 		List<ChatMessage> messages = messagesSupplier.get();
 		int contentHeight = 0;
 		for (ChatMessage m : messages) {
-			contentHeight += blockHeight(m);
+			contentHeight += blockHeight(m, localWidth - PADDING * 2);
 		}
 		double maxScroll = Math.max(0, contentHeight - localHeight);
 		if (scrollOffset > maxScroll) {
@@ -78,7 +84,7 @@ public class MessageListWidget extends AbstractWidget {
 		// Рисуем снизу вверх (последнее сообщение внизу, как в любом мессенджере).
 		for (int i = messages.size() - 1; i >= 0; i--) {
 			ChatMessage message = messages.get(i);
-			int height = blockHeight(message);
+			int height = blockHeight(message, localWidth - PADDING * 2);
 			cursorY -= height;
 
 			if (cursorY + height < 0 || cursorY > localHeight) {
@@ -90,11 +96,16 @@ public class MessageListWidget extends AbstractWidget {
 				header += " §7" + TIME_FORMAT.format(new Date(message.timestampEpochMillis()));
 			}
 			graphics.text(this.font, header, textX, cursorY, message.senderColor() | 0xFF000000, false);
-			graphics.text(this.font, truncate(message.content(), localWidth - PADDING * 2),
-					textX, cursorY + LINE_HEIGHT, 0xFFE0E0E0, false);
+
+			List<String> lines = wrapText(message.content(), localWidth - PADDING * 2);
+			int lineY = cursorY + LINE_HEIGHT;
+			for (String line : lines) {
+				graphics.text(this.font, line, textX, lineY, 0xFFE0E0E0, false);
+				lineY += LINE_HEIGHT;
+			}
 
 			if (message.attachment() != null) {
-				renderAttachment(graphics, message.attachment(), textX, cursorY + LINE_HEIGHT * 2, localWidth);
+				renderAttachment(graphics, message.attachment(), textX, lineY, localWidth, scale);
 			}
 		}
 
@@ -102,8 +113,9 @@ public class MessageListWidget extends AbstractWidget {
 	}
 
 	/** Полная высота блока сообщения (в "локальных", ещё не отмасштабленных, пикселях). */
-	private int blockHeight(ChatMessage message) {
-		int base = LINE_HEIGHT * 2 + 2;
+	private int blockHeight(ChatMessage message, int contentWidth) {
+		int lineCount = Math.max(1, wrapText(message.content(), contentWidth).size());
+		int base = LINE_HEIGHT + lineCount * LINE_HEIGHT + 2;
 		Attachment attachment = message.attachment();
 		if (attachment == null) {
 			return base;
@@ -113,14 +125,54 @@ public class MessageListWidget extends AbstractWidget {
 			case HELD_ITEM -> base + ITEM_SIZE + 2;
 			case INVENTORY -> base + rows(36) * ITEM_SIZE + LINE_HEIGHT + 4;
 			case ENDER_CHEST -> base + rows(27) * ITEM_SIZE + LINE_HEIGHT + 4;
+			case SCREENSHOT -> base + SCREENSHOT_BOX_HEIGHT + 2;
 		};
+	}
+
+	/**
+	 * Простой жадный перенос по словам (без учёта форматирования Component/§-кодов внутри
+	 * слова — для чата этого достаточно). Слишком длинные "слова" без пробелов режутся
+	 * посимвольно, чтобы не вылезать за границу виджета.
+	 */
+	private List<String> wrapText(String text, int maxWidth) {
+		List<String> lines = new java.util.ArrayList<>();
+		if (text == null || text.isEmpty()) {
+			return lines;
+		}
+		maxWidth = Math.max(20, maxWidth);
+		for (String paragraph : text.split("\n", -1)) {
+			StringBuilder currentLine = new StringBuilder();
+			for (String word : paragraph.split(" ", -1)) {
+				String candidate = currentLine.isEmpty() ? word : currentLine + " " + word;
+				if (this.font.width(candidate) <= maxWidth) {
+					currentLine = new StringBuilder(candidate);
+					continue;
+				}
+				if (!currentLine.isEmpty()) {
+					lines.add(currentLine.toString());
+					currentLine = new StringBuilder();
+				}
+				// Само слово шире доступной ширины — режем посимвольно.
+				while (this.font.width(word) > maxWidth) {
+					int cut = 1;
+					while (cut < word.length() && this.font.width(word.substring(0, cut + 1)) <= maxWidth) {
+						cut++;
+					}
+					lines.add(word.substring(0, cut));
+					word = word.substring(cut);
+				}
+				currentLine = new StringBuilder(word);
+			}
+			lines.add(currentLine.toString());
+		}
+		return lines;
 	}
 
 	private int rows(int slotCount) {
 		return (int) Math.ceil(slotCount / (double) GRID_COLUMNS);
 	}
 
-	private void renderAttachment(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, int maxWidth) {
+	private void renderAttachment(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, int maxWidth, float scale) {
 		try {
 			switch (attachment.type()) {
 				case COORDINATES -> renderCoordinates(graphics, attachment, x, y);
@@ -128,11 +180,26 @@ public class MessageListWidget extends AbstractWidget {
 				case HELD_ITEM -> renderHeldItem(graphics, attachment, x, y);
 				case INVENTORY -> renderItemGrid(graphics, attachment, x, y, "Инвентарь");
 				case ENDER_CHEST -> renderItemGrid(graphics, attachment, x, y, "Эндер-сундук");
+				case SCREENSHOT -> renderScreenshotPlaceholder(graphics, attachment, x, y, scale);
 			}
 		} catch (Exception e) {
 			// Повреждённое/несовместимое вложение — не роняем весь рендер списка сообщений.
 			graphics.text(this.font, "[не удалось показать вложение]", x, y, 0xFFFF5555, false);
 		}
+	}
+
+	private void renderScreenshotPlaceholder(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, float scale) {
+		graphics.fill(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, 0xFF2A2A30);
+		graphics.text(this.font, "\uD83D\uDCF7 Скриншот", x + 6, y + SCREENSHOT_BOX_HEIGHT / 2 - 10, 0xFF6FA8DC, false);
+		graphics.text(this.font, "(нажми)", x + 6, y + SCREENSHOT_BOX_HEIGHT / 2 + 2, 0xFFAAAAAA, false);
+
+		// Координаты клика запоминаем уже в экранном (немасштабированном) пространстве,
+		// т.к. mouseClicked получает абсолютные координаты мыши, а не "локальные".
+		int screenX0 = getX() + Math.round(x * scale);
+		int screenY0 = getY() + Math.round(y * scale);
+		int screenX1 = getX() + Math.round((x + SCREENSHOT_BOX_WIDTH) * scale);
+		int screenY1 = getY() + Math.round((y + SCREENSHOT_BOX_HEIGHT) * scale);
+		screenshotHits.add(new ScreenshotHit(screenX0, screenY0, screenX1, screenY1, attachment.dataJson()));
 	}
 
 	private void renderCoordinates(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y) {
@@ -214,19 +281,22 @@ public class MessageListWidget extends AbstractWidget {
 		};
 	}
 
-	private String truncate(String text, int maxWidth) {
-		if (this.font.width(text) <= maxWidth) {
-			return text;
-		}
-		String suffix = "...";
-		StringBuilder builder = new StringBuilder();
-		for (char c : text.toCharArray()) {
-			if (this.font.width(builder.toString() + c + suffix) > maxWidth) {
-				break;
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		for (ScreenshotHit hit : screenshotHits) {
+			if (mouseX >= hit.x0() && mouseX <= hit.x1() && mouseY >= hit.y0() && mouseY <= hit.y1()) {
+				try {
+					Attachment.ScreenshotData data = ClanGson.INSTANCE.fromJson(hit.dataJson(), Attachment.ScreenshotData.class);
+					net.minecraft.client.Minecraft.getInstance().setScreen(
+							new com.optimistopti.clanchat.client.gui.ScreenshotViewScreen(
+									net.minecraft.client.Minecraft.getInstance().screen, data));
+				} catch (Exception e) {
+					com.optimistopti.clanchat.ClanChatMod.LOGGER.error("Не удалось открыть скриншот", e);
+				}
+				return true;
 			}
-			builder.append(c);
 		}
-		return builder + suffix;
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 
 	@Override

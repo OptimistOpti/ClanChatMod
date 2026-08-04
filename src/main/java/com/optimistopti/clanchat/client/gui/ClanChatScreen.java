@@ -93,7 +93,7 @@ public class ClanChatScreen extends Screen {
 
 		// --- Attachment quick-buttons ---
 		int attachY = listY + listHeight + 4;
-		int attachButtonWidth = listWidth / 5 - 2;
+		int attachButtonWidth = listWidth / 6 - 2;
 		addAttachmentButtons(listX, attachY, attachButtonWidth);
 
 		// --- Input row ---
@@ -108,19 +108,35 @@ public class ClanChatScreen extends Screen {
 	}
 
 	private void addAttachmentButtons(int listX, int attachY, int buttonWidth) {
-		String[] labels = {"Коорд.", "Предмет", "Инвент.", "Сундук", "HP"};
+		String[] labels = {"Коорд.", "Предмет", "Инвент.", "Сундук", "HP", "Скрин"};
 		Runnable[] actions = {
 				() -> sendWithAttachment(AttachmentBuilder.coordinates("Текущая позиция")),
 				() -> sendWithAttachment(AttachmentBuilder.heldItem()),
 				() -> sendWithAttachment(AttachmentBuilder.inventory()),
 				() -> sendWithAttachment(AttachmentBuilder.enderChest()),
-				() -> sendWithAttachment(AttachmentBuilder.healthStatus())
+				() -> sendWithAttachment(AttachmentBuilder.healthStatus()),
+				this::sendScreenshot
 		};
 		for (int i = 0; i < labels.length; i++) {
 			final Runnable action = actions[i];
 			this.addRenderableWidget(Button.builder(Component.literal(labels[i]), b -> action.run())
 					.bounds(listX + i * (buttonWidth + 2), attachY, buttonWidth, 20).build());
 		}
+	}
+
+	private void sendScreenshot() {
+		var attachment = AttachmentBuilder.screenshot();
+		if (attachment == null) {
+			if (com.optimistopti.clanchat.client.ScreenshotCapture.isCapturing()) {
+				ClientClanState.INSTANCE.pushSystemNotice(
+						new com.optimistopti.clanchat.network.dto.SystemNoticeS2C("Скриншот ещё обрабатывается, попробуй через секунду.", "info"));
+			} else {
+				ClientClanState.INSTANCE.pushSystemNotice(
+						new com.optimistopti.clanchat.network.dto.SystemNoticeS2C("Скриншот не готов — переоткрой чат клавишей.", "error"));
+			}
+			return;
+		}
+		sendWithAttachment(attachment);
 	}
 
 	@Override
@@ -243,11 +259,12 @@ public class ClanChatScreen extends Screen {
 		String title = clan != null ? clan.getName() + " [" + clan.getTag() + "]" : "ClanChat";
 		graphics.text(this.font, title, this.width / 2 - 220, this.height / 2 - 145, 0xFFFFFFFF, true);
 
-		if (clan == null && !ClientClanState.INSTANCE.getSystemNotices().isEmpty()) {
+		if (!ClientClanState.INSTANCE.getSystemNotices().isEmpty()) {
 			var notices = ClientClanState.INSTANCE.getSystemNotices();
 			var last = notices.get(notices.size() - 1);
 			int color = "error".equals(last.level) ? 0xFFFF5555 : 0xFF55FF55;
-			graphics.text(this.font, last.text, this.width / 2 - 150, this.height / 2 - 78, color, false);
+			int noticeY = clan == null ? this.height / 2 - 78 : this.height / 2 - 133;
+			graphics.text(this.font, last.text, this.width / 2 - 150, noticeY, color, false);
 		}
 	}
 

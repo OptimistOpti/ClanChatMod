@@ -8,6 +8,7 @@ package com.optimistopti.clanchat.chat;
  *   <li>{@code HELD_ITEM} -> {@link ItemSnapshot}</li>
  *   <li>{@code INVENTORY} / {@code ENDER_CHEST} -> {@code ItemSnapshot[]}</li>
  *   <li>{@code HEALTH_STATUS} -> {@link HealthStatusData}</li>
+ *   <li>{@code SCREENSHOT} -> {@link ScreenshotData}</li>
  * </ul>
  */
 public record Attachment(AttachmentType type, String dataJson) {
@@ -16,5 +17,9 @@ public record Attachment(AttachmentType type, String dataJson) {
 	}
 
 	public record HealthStatusData(float health, float maxHealth, int armor, int foodLevel, boolean needsHelp) {
+	}
+
+	/** {@code imageBase64} — PNG, уже уменьшенный клиентом перед отправкой (см. ScreenshotCapture). */
+	public record ScreenshotData(String imageBase64, int width, int height) {
 	}
 }

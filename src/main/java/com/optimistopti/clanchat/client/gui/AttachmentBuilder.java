@@ -79,6 +79,20 @@ public final class AttachmentBuilder {
 		return new Attachment(com.optimistopti.clanchat.chat.AttachmentType.HEALTH_STATUS, ClanGson.INSTANCE.toJson(data));
 	}
 
+	/**
+	 * Использует уже снятый заранее скриншот (см. {@link com.optimistopti.clanchat.client.ScreenshotCapture}) —
+	 * специально не снимает новый прямо сейчас, потому что к моменту нажатия кнопки в GUI
+	 * игровой мир уже закрыт самим окном чата.
+	 */
+	public static Attachment screenshot() {
+		var pending = com.optimistopti.clanchat.client.ScreenshotCapture.getPending();
+		if (pending == null) {
+			return null;
+		}
+		Attachment.ScreenshotData data = new Attachment.ScreenshotData(pending.base64Png(), pending.width(), pending.height());
+		return new Attachment(com.optimistopti.clanchat.chat.AttachmentType.SCREENSHOT, ClanGson.INSTANCE.toJson(data));
+	}
+
 	private static ItemSnapshot toSnapshot(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
 			return ItemSnapshot.EMPTY;

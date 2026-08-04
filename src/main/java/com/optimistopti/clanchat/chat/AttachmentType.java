@@ -10,5 +10,7 @@ public enum AttachmentType {
 	/** Снапшот эндер-сундука (27 слотов). */
 	ENDER_CHEST,
 	/** Текущее здоровье/броня/эффекты — обычно с авто-пингом "нужна помощь". */
-	HEALTH_STATUS
+	HEALTH_STATUS,
+	/** Скриншот того, что игрок видел в момент открытия чата (см. ScreenshotCapture). */
+	SCREENSHOT
 }
