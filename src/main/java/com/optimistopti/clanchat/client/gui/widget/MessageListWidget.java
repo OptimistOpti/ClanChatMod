@@ -282,7 +282,9 @@ public class MessageListWidget extends AbstractWidget {
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
 		for (ScreenshotHit hit : screenshotHits) {
 			if (mouseX >= hit.x0() && mouseX <= hit.x1() && mouseY >= hit.y0() && mouseY <= hit.y1()) {
 				try {
@@ -296,7 +298,7 @@ public class MessageListWidget extends AbstractWidget {
 				return true;
 			}
 		}
-		return super.mouseClicked(mouseX, mouseY, button);
+		return super.mouseClicked(event, doubleClick);
 	}
 
 	@Override
