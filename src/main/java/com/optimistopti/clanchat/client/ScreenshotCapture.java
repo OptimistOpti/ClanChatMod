@@ -18,9 +18,9 @@ import java.util.Base64;
  */
 public final class ScreenshotCapture {
 
-	private static final int TARGET_WIDTH = 320;
+	private static final int TARGET_WIDTH = 400;
 	/** С запасом под base64 (+~33% к размеру) и служебные поля JSON. */
-	private static final int MAX_BASE64_LENGTH = 260_000;
+	private static final int MAX_BASE64_LENGTH = 350_000;
 
 	public record PendingScreenshot(String base64Png, int width, int height) {
 	}

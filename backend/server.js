@@ -9,7 +9,7 @@ const PORT = process.env.PORT || process.env.CLANCHAT_PORT || 8080;
 const MAX_MESSAGE_LENGTH = 512;
 // Скриншоты (base64 PNG) кладём тоже как вложение, отсюда такой большой лимит —
 // см. ScreenshotCapture.java на стороне мода (уменьшает и сжимает картинку перед отправкой).
-const MAX_ATTACHMENT_JSON_LENGTH = 300000;
+const MAX_ATTACHMENT_JSON_LENGTH = 400000;
 
 const store = new ClanStore();
 

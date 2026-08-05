@@ -105,7 +105,7 @@ public class MessageListWidget extends AbstractWidget {
 			}
 
 			if (message.attachment() != null) {
-				renderAttachment(graphics, message.attachment(), textX, lineY, localWidth, scale);
+				renderAttachment(graphics, message.attachment(), message.id(), textX, lineY, localWidth, scale);
 			}
 		}
 
@@ -172,7 +172,7 @@ public class MessageListWidget extends AbstractWidget {
 		return (int) Math.ceil(slotCount / (double) GRID_COLUMNS);
 	}
 
-	private void renderAttachment(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, int maxWidth, float scale) {
+	private void renderAttachment(GuiGraphicsExtractor graphics, Attachment attachment, java.util.UUID messageId, int x, int y, int maxWidth, float scale) {
 		try {
 			switch (attachment.type()) {
 				case COORDINATES -> renderCoordinates(graphics, attachment, x, y);
@@ -180,7 +180,7 @@ public class MessageListWidget extends AbstractWidget {
 				case HELD_ITEM -> renderHeldItem(graphics, attachment, x, y);
 				case INVENTORY -> renderItemGrid(graphics, attachment, x, y, "Инвентарь");
 				case ENDER_CHEST -> renderItemGrid(graphics, attachment, x, y, "Эндер-сундук");
-				case SCREENSHOT -> renderScreenshotPlaceholder(graphics, attachment, x, y, scale);
+				case SCREENSHOT -> renderScreenshotThumbnail(graphics, attachment, messageId, x, y, scale);
 			}
 		} catch (Exception e) {
 			// Повреждённое/несовместимое вложение — не роняем весь рендер списка сообщений.
@@ -188,10 +188,29 @@ public class MessageListWidget extends AbstractWidget {
 		}
 	}
 
-	private void renderScreenshotPlaceholder(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, float scale) {
-		graphics.fill(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, 0xFF2A2A30);
-		graphics.text(this.font, "\uD83D\uDCF7 Скриншот", x + 6, y + SCREENSHOT_BOX_HEIGHT / 2 - 10, 0xFF6FA8DC, false);
-		graphics.text(this.font, "(нажми)", x + 6, y + SCREENSHOT_BOX_HEIGHT / 2 + 2, 0xFFAAAAAA, false);
+	private void renderScreenshotThumbnail(GuiGraphicsExtractor graphics, Attachment attachment, java.util.UUID messageId, int x, int y, float scale) {
+		Attachment.ScreenshotData data = ClanGson.INSTANCE.fromJson(attachment.dataJson(), Attachment.ScreenshotData.class);
+		Identifier textureId = com.optimistopti.clanchat.client.gui.ScreenshotThumbnailCache.getOrCreate(messageId, data.imageBase64());
+
+		if (textureId == null) {
+			graphics.fill(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, 0xFF2A2A30);
+			graphics.text(this.font, "\u26A0 не удалось показать", x + 6, y + SCREENSHOT_BOX_HEIGHT / 2 - 4, 0xFFFF5555, false);
+			return;
+		}
+
+		// Вписываем миниатюру в отведённый бокс, сохраняя пропорции, и центрируем.
+		float srcAspect = data.width() / (float) Math.max(1, data.height());
+		int drawW = SCREENSHOT_BOX_WIDTH;
+		int drawH = Math.round(drawW / srcAspect);
+		if (drawH > SCREENSHOT_BOX_HEIGHT) {
+			drawH = SCREENSHOT_BOX_HEIGHT;
+			drawW = Math.round(drawH * srcAspect);
+		}
+		int boxX = x + (SCREENSHOT_BOX_WIDTH - drawW) / 2;
+		int boxY = y + (SCREENSHOT_BOX_HEIGHT - drawH) / 2;
+
+		graphics.fill(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, 0xFF161619);
+		graphics.blit(textureId, boxX, boxY, boxX + drawW, boxY + drawH, 0f, 1f, 0f, 1f);
 
 		// Координаты клика запоминаем уже в экранном (немасштабированном) пространстве,
 		// т.к. mouseClicked получает абсолютные координаты мыши, а не "локальные".
