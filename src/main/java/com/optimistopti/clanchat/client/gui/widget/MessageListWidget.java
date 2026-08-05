@@ -79,7 +79,7 @@ public class MessageListWidget extends AbstractWidget {
 		graphics.pose().scale(scale, scale);
 
 		int textX = PADDING;
-		int cursorY = localHeight - PADDING - (int) scrollOffset;
+		int cursorY = localHeight - PADDING + (int) scrollOffset;
 
 		// Рисуем снизу вверх (последнее сообщение внизу, как в любом мессенджере).
 		for (int i = messages.size() - 1; i >= 0; i--) {
@@ -303,7 +303,8 @@ public class MessageListWidget extends AbstractWidget {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		scrollOffset -= scrollY * (LINE_HEIGHT * 2);
+		// Колёсико "вверх" (scrollY > 0) уводит в историю — раскрывает более старые сообщения.
+		scrollOffset += scrollY * (LINE_HEIGHT * 2);
 		if (scrollOffset < 0) {
 			scrollOffset = 0;
 		}
