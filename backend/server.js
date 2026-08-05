@@ -209,7 +209,15 @@ function handleSendMessage(identity, data) {
 	}
 
 	let attachment = null;
-	if (data.attachmentType && data.attachmentDataJson && data.attachmentDataJson.length <= MAX_ATTACHMENT_JSON_LENGTH) {
+	if (data.attachmentType) {
+		if (!data.attachmentDataJson) {
+			throw new ClanActionError('Вложение пустое — не удалось прикрепить.');
+		}
+		if (data.attachmentDataJson.length > MAX_ATTACHMENT_JSON_LENGTH) {
+			throw new ClanActionError(
+				`Вложение слишком большое (${data.attachmentDataJson.length} симв., лимит ${MAX_ATTACHMENT_JSON_LENGTH}) — не отправлено. `
+				+ 'Если это скриншот — возможно, на бэкенде ещё старый лимит, обнови server.js.');
+		}
 		attachment = { type: data.attachmentType, dataJson: data.attachmentDataJson };
 	}
 
