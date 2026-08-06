@@ -36,26 +36,32 @@ public class MessageListWidget extends AbstractWidget {
 	private static final int SCREENSHOT_BOX_HEIGHT = 56;
 	private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm");
 
-	private record ScreenshotHit(int x0, int y0, int x1, int y1, String dataJson) {
+	private record ClickHit(int x0, int y0, int x1, int y1, Runnable action) {
+		boolean contains(double mouseX, double mouseY) {
+			return mouseX >= x0 && mouseX <= x1 && mouseY >= y0 && mouseY <= y1;
+		}
 	}
 
-	private final List<ScreenshotHit> screenshotHits = new java.util.ArrayList<>();
+	private final List<ClickHit> clickHits = new java.util.ArrayList<>();
 
 	private final Supplier<List<ChatMessage>> messagesSupplier;
 	private final Font font;
+	private final java.util.function.BiConsumer<java.util.UUID, String> onSenderClick;
 	private double scrollOffset = 0;
 
 	public MessageListWidget(int x, int y, int width, int height, Font font,
-							  Supplier<List<ChatMessage>> messagesSupplier) {
+							  Supplier<List<ChatMessage>> messagesSupplier,
+							  java.util.function.BiConsumer<java.util.UUID, String> onSenderClick) {
 		super(x, y, width, height, Component.empty());
 		this.font = font;
 		this.messagesSupplier = messagesSupplier;
+		this.onSenderClick = onSenderClick;
 	}
 
 	@Override
 	protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
 		graphics.fill(getX(), getY(), getX() + width, getY() + height, 0x88101014);
-		screenshotHits.clear();
+		clickHits.clear();
 
 		float scale = ClanChatConfig.INSTANCE.fontScale;
 		int localWidth = (int) (width / scale);
@@ -96,6 +102,14 @@ public class MessageListWidget extends AbstractWidget {
 				header += " §7" + TIME_FORMAT.format(new Date(message.timestampEpochMillis()));
 			}
 			graphics.text(this.font, header, textX, cursorY, message.senderColor() | 0xFF000000, false);
+
+			net.minecraft.client.player.LocalPlayer self = net.minecraft.client.Minecraft.getInstance().player;
+			boolean isSelf = self != null && self.getUUID().equals(message.senderUuid());
+			if (!isSelf && onSenderClick != null) {
+				int nameWidth = this.font.width(message.senderName());
+				addClickHit(textX, cursorY, textX + nameWidth, cursorY + LINE_HEIGHT, scale,
+						() -> onSenderClick.accept(message.senderUuid(), message.senderName()));
+			}
 
 			List<String> lines = wrapText(message.content(), localWidth - PADDING * 2);
 			int lineY = cursorY + LINE_HEIGHT;
@@ -175,7 +189,7 @@ public class MessageListWidget extends AbstractWidget {
 	private void renderAttachment(GuiGraphicsExtractor graphics, Attachment attachment, java.util.UUID messageId, int x, int y, int maxWidth, float scale) {
 		try {
 			switch (attachment.type()) {
-				case COORDINATES -> renderCoordinates(graphics, attachment, x, y);
+				case COORDINATES -> renderCoordinates(graphics, attachment, x, y, scale);
 				case HEALTH_STATUS -> renderHealth(graphics, attachment, x, y);
 				case HELD_ITEM -> renderHeldItem(graphics, attachment, x, y);
 				case INVENTORY -> renderItemGrid(graphics, attachment, x, y, "Инвентарь");
@@ -212,20 +226,41 @@ public class MessageListWidget extends AbstractWidget {
 		graphics.fill(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, 0xFF161619);
 		graphics.blit(textureId, boxX, boxY, boxX + drawW, boxY + drawH, 0f, 1f, 0f, 1f);
 
-		// Координаты клика запоминаем уже в экранном (немасштабированном) пространстве,
-		// т.к. mouseClicked получает абсолютные координаты мыши, а не "локальные".
-		int screenX0 = getX() + Math.round(x * scale);
-		int screenY0 = getY() + Math.round(y * scale);
-		int screenX1 = getX() + Math.round((x + SCREENSHOT_BOX_WIDTH) * scale);
-		int screenY1 = getY() + Math.round((y + SCREENSHOT_BOX_HEIGHT) * scale);
-		screenshotHits.add(new ScreenshotHit(screenX0, screenY0, screenX1, screenY1, attachment.dataJson()));
+		addClickHit(x, y, x + SCREENSHOT_BOX_WIDTH, y + SCREENSHOT_BOX_HEIGHT, scale, () -> {
+			try {
+				net.minecraft.client.Minecraft.getInstance().setScreen(
+						new com.optimistopti.clanchat.client.gui.ScreenshotViewScreen(
+								net.minecraft.client.Minecraft.getInstance().screen, data));
+			} catch (Exception e) {
+				com.optimistopti.clanchat.ClanChatMod.LOGGER.error("Не удалось открыть скриншот", e);
+			}
+		});
 	}
 
-	private void renderCoordinates(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y) {
+	/** Регистрирует кликабельную область; координаты x0..y1 — "локальные" (до масштаба/сдвига виджета). */
+	private void addClickHit(int x0, int y0, int x1, int y1, float scale, Runnable action) {
+		int screenX0 = getX() + Math.round(x0 * scale);
+		int screenY0 = getY() + Math.round(y0 * scale);
+		int screenX1 = getX() + Math.round(x1 * scale);
+		int screenY1 = getY() + Math.round(y1 * scale);
+		clickHits.add(new ClickHit(screenX0, screenY0, screenX1, screenY1, action));
+	}
+
+	private void renderCoordinates(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y, float scale) {
 		Attachment.CoordinatesData data = ClanGson.INSTANCE.fromJson(attachment.dataJson(), Attachment.CoordinatesData.class);
 		String dim = shortDimensionName(data.dimensionId());
 		String text = String.format("\uD83D\uDCCD %.0f, %.0f, %.0f (%s)", data.x(), data.y(), data.z(), dim);
 		graphics.text(this.font, text, x, y, 0xFF6FA8DC, false);
+
+		int textWidth = this.font.width(text);
+		String copyValue = String.format("%.0f %.0f %.0f", data.x(), data.y(), data.z());
+		addClickHit(x, y, x + textWidth, y + LINE_HEIGHT, scale, () -> {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			mc.keyboardHandler.setClipboard(copyValue);
+			if (mc.player != null) {
+				mc.player.sendSystemMessage(Component.literal("§7[ClanChat] Координаты скопированы: " + copyValue));
+			}
+		});
 	}
 
 	private void renderHealth(GuiGraphicsExtractor graphics, Attachment attachment, int x, int y) {
@@ -304,16 +339,9 @@ public class MessageListWidget extends AbstractWidget {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mouseX = event.x();
 		double mouseY = event.y();
-		for (ScreenshotHit hit : screenshotHits) {
-			if (mouseX >= hit.x0() && mouseX <= hit.x1() && mouseY >= hit.y0() && mouseY <= hit.y1()) {
-				try {
-					Attachment.ScreenshotData data = ClanGson.INSTANCE.fromJson(hit.dataJson(), Attachment.ScreenshotData.class);
-					net.minecraft.client.Minecraft.getInstance().setScreen(
-							new com.optimistopti.clanchat.client.gui.ScreenshotViewScreen(
-									net.minecraft.client.Minecraft.getInstance().screen, data));
-				} catch (Exception e) {
-					com.optimistopti.clanchat.ClanChatMod.LOGGER.error("Не удалось открыть скриншот", e);
-				}
+		for (ClickHit hit : clickHits) {
+			if (hit.contains(mouseX, mouseY)) {
+				hit.action().run();
 				return true;
 			}
 		}

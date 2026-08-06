@@ -7,11 +7,14 @@ const { DEFAULT_PERMISSIONS } = require('./permissions');
 
 const DATA_DIR = process.env.CLANCHAT_DATA_DIR || path.join(__dirname, '..', 'data');
 const CLANS_FILE = path.join(DATA_DIR, 'clans.json');
+const HISTORY_DIR = path.join(DATA_DIR, 'history');
 const INVITE_EXPIRY_MS = 5 * 60 * 1000;
 const MAX_MESSAGES_PER_CLAN = 200;
+const MAX_HOMES_PER_CLAN = 20;
 
 const NAME_PATTERN = /^[\p{L}0-9 _-]{3,24}$/u;
 const TAG_PATTERN = /^[\p{L}0-9]{2,4}$/u;
+const HOME_NAME_PATTERN = /^[\p{L}0-9 _-]{1,24}$/u;
 
 class ClanActionError extends Error {
 }
@@ -33,6 +36,7 @@ class ClanStore {
 
 	_load() {
 		fs.mkdirSync(DATA_DIR, { recursive: true });
+		fs.mkdirSync(HISTORY_DIR, { recursive: true });
 		if (!fs.existsSync(CLANS_FILE)) {
 			return;
 		}
@@ -43,10 +47,48 @@ class ClanStore {
 				for (const uuid of Object.keys(clan.members)) {
 					this.membership.set(uuid, clan.id);
 				}
+				this._loadHistory(clan.id);
 			}
 			console.log(`[ClanStore] загружено кланов: ${this.clans.size}`);
 		} catch (e) {
 			console.error('[ClanStore] не удалось прочитать clans.json:', e);
+		}
+	}
+
+	_historyFile(clanId) {
+		return path.join(HISTORY_DIR, `${clanId}.json`);
+	}
+
+	_loadHistory(clanId) {
+		const file = this._historyFile(clanId);
+		if (!fs.existsSync(file)) {
+			return;
+		}
+		try {
+			const messages = JSON.parse(fs.readFileSync(file, 'utf8'));
+			this.history.set(clanId, messages);
+		} catch (e) {
+			console.error(`[ClanStore] не удалось прочитать историю чата ${clanId}:`, e);
+		}
+	}
+
+	_saveHistory(clanId) {
+		const list = this.history.get(clanId) || [];
+		const file = this._historyFile(clanId);
+		const tmp = file + '.tmp';
+		try {
+			fs.writeFileSync(tmp, JSON.stringify(list), 'utf8');
+			fs.renameSync(tmp, file);
+		} catch (e) {
+			console.error(`[ClanStore] не удалось сохранить историю чата ${clanId}:`, e);
+		}
+	}
+
+	_deleteHistory(clanId) {
+		try {
+			fs.rmSync(this._historyFile(clanId), { force: true });
+		} catch (e) {
+			console.error(`[ClanStore] не удалось удалить историю чата ${clanId}:`, e);
 		}
 	}
 
@@ -134,6 +176,39 @@ class ClanStore {
 		}
 		this.clans.delete(clan.id);
 		this.history.delete(clan.id);
+		this._deleteHistory(clan.id);
+		this.saveAll();
+		return clan;
+	}
+
+	// ---------------------------------------------------------------- homes (точки клана)
+
+	setHome(actorUuid, name, dimensionId, x, y, z) {
+		const clan = this._requireClan(actorUuid);
+		if (!this.hasPermission(clan, actorUuid, 'MANAGE_HOMES')) {
+			throw new ClanActionError('У тебя нет прав управлять точками клана.');
+		}
+		if (!HOME_NAME_PATTERN.test(name)) {
+			throw new ClanActionError('Название точки должно быть 1-24 символа (буквы/цифры/пробел/-/_).');
+		}
+		const isNew = !clan.homes[name];
+		if (isNew && Object.keys(clan.homes).length >= MAX_HOMES_PER_CLAN) {
+			throw new ClanActionError(`Максимум ${MAX_HOMES_PER_CLAN} точек на клан — удали ненужную перед добавлением новой.`);
+		}
+		clan.homes[name] = { name, dimensionId, x, y, z };
+		this.saveAll();
+		return clan;
+	}
+
+	deleteHome(actorUuid, name) {
+		const clan = this._requireClan(actorUuid);
+		if (!this.hasPermission(clan, actorUuid, 'MANAGE_HOMES')) {
+			throw new ClanActionError('У тебя нет прав управлять точками клана.');
+		}
+		if (!clan.homes[name]) {
+			throw new ClanActionError('Такой точки нет.');
+		}
+		delete clan.homes[name];
 		this.saveAll();
 		return clan;
 	}
@@ -221,6 +296,7 @@ class ClanStore {
 		if (Object.keys(clan.members).length === 0) {
 			this.clans.delete(clan.id);
 			this.history.delete(clan.id);
+			this._deleteHistory(clan.id);
 		}
 		this.saveAll();
 		return clan;
@@ -267,6 +343,7 @@ class ClanStore {
 		while (list.length > MAX_MESSAGES_PER_CLAN) {
 			list.shift();
 		}
+		this._saveHistory(clanId);
 	}
 
 	getRecentMessages(clanId) {

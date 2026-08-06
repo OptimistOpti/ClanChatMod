@@ -82,13 +82,19 @@ public class ClanChatScreen extends Screen {
 						this.minecraft.setScreen(new ClanChatConfigScreen(this)))
 				.bounds(panelX, sidebarY, SIDEBAR_WIDTH, 20).build());
 
-		// --- Message list ---
+		// --- Message list / выбор собеседника для личных ---
 		int listX = panelX + SIDEBAR_WIDTH + 10;
 		int listY = panelY;
 		int listWidth = panelWidth - SIDEBAR_WIDTH - 10;
 		int listHeight = panelHeight - INPUT_HEIGHT - 30;
 
-		messageList = new MessageListWidget(listX, listY, listWidth, listHeight, this.font, this::currentMessages);
+		if (channel == ChatChannelType.WHISPER && whisperTarget == null) {
+			initWhisperPicker(clan, listX, listY, listWidth);
+			return;
+		}
+
+		messageList = new MessageListWidget(listX, listY, listWidth, listHeight, this.font, this::currentMessages,
+				(uuid, name) -> this.minecraft.setScreen(new ClanChatScreen(parent, ChatChannelType.WHISPER, uuid)));
 		this.addRenderableWidget(messageList);
 
 		// --- Attachment quick-buttons ---
@@ -105,6 +111,32 @@ public class ClanChatScreen extends Screen {
 
 		this.addRenderableWidget(Button.builder(Component.literal("Отправить"), b -> sendCurrentMessage())
 				.bounds(listX + listWidth - 65, inputY, 65, INPUT_HEIGHT).build());
+	}
+
+	private void initWhisperPicker(Clan clan, int listX, int listY, int listWidth) {
+		var self = net.minecraft.client.Minecraft.getInstance().player;
+		UUID selfUuid = self != null ? self.getUUID() : null;
+
+		int y = listY;
+		java.util.List<ClanMember> members = new java.util.ArrayList<>(clan.getMembers().values());
+		members.removeIf(m -> m.getUuid().equals(selfUuid));
+
+		if (members.isEmpty()) {
+			return; // кроме тебя в клане никого нет — писать некому
+		}
+
+		for (ClanMember member : members) {
+			UUID targetUuid = member.getUuid();
+			String label = member.getLastKnownName();
+			int unread = ClientClanState.INSTANCE.getWhisperThread(targetUuid).size();
+			if (unread > 0) {
+				label += " (" + unread + ")";
+			}
+			this.addRenderableWidget(Button.builder(Component.literal("\u2709 " + label), b ->
+							this.minecraft.setScreen(new ClanChatScreen(parent, ChatChannelType.WHISPER, targetUuid)))
+					.bounds(listX, y, listWidth, 20).build());
+			y += 22;
+		}
 	}
 
 	private void addAttachmentButtons(int listX, int attachY, int buttonWidth) {

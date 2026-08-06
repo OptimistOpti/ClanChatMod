@@ -145,6 +145,14 @@ function handleEnvelope(ws, envelope) {
 			const clan = store.setRole(identity.uuid, data.targetUuid, data.role);
 			return broadcastStateToClanMembers(clan);
 		}
+		case 'SET_HOME': {
+			const clan = store.setHome(identity.uuid, data.name, data.dimensionId, data.x, data.y, data.z);
+			return broadcastStateToClanMembers(clan);
+		}
+		case 'DELETE_HOME': {
+			const clan = store.deleteHome(identity.uuid, data.name);
+			return broadcastStateToClanMembers(clan);
+		}
 		case 'LEAVE': {
 			store.leave(identity.uuid);
 			return sendFullState(identity.uuid);
