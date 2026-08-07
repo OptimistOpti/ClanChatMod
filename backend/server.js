@@ -7,9 +7,10 @@ const { ROLE_COLOR } = require('./lib/permissions');
 
 const PORT = process.env.PORT || process.env.CLANCHAT_PORT || 8080;
 const MAX_MESSAGE_LENGTH = 512;
-// Скриншоты (base64 PNG) кладём тоже как вложение, отсюда такой большой лимит —
-// см. ScreenshotCapture.java на стороне мода (уменьшает и сжимает картинку перед отправкой).
-const MAX_ATTACHMENT_JSON_LENGTH = 400000;
+// Скриншоты в исходном разрешении экрана (без даунскейла) могут весить несколько
+// мегабайт в base64 — см. ScreenshotCapture.java на стороне мода. Лимит намеренно
+// с запасом, но не безлимитный (защита от совсем патологических случаев).
+const MAX_ATTACHMENT_JSON_LENGTH = 16_000_000;
 
 const store = new ClanStore();
 
@@ -143,14 +144,6 @@ function handleEnvelope(ws, envelope) {
 		}
 		case 'SET_ROLE': {
 			const clan = store.setRole(identity.uuid, data.targetUuid, data.role);
-			return broadcastStateToClanMembers(clan);
-		}
-		case 'SET_HOME': {
-			const clan = store.setHome(identity.uuid, data.name, data.dimensionId, data.x, data.y, data.z);
-			return broadcastStateToClanMembers(clan);
-		}
-		case 'DELETE_HOME': {
-			const clan = store.deleteHome(identity.uuid, data.name);
 			return broadcastStateToClanMembers(clan);
 		}
 		case 'LEAVE': {

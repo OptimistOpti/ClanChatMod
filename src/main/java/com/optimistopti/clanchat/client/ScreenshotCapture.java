@@ -12,15 +12,20 @@ import java.nio.file.Path;
 import java.util.Base64;
 
 /**
- * Снимает уменьшенный скриншот в момент открытия чата (пока ещё видно игровой мир,
- * а не сам GUI) и держит его наготове — если игрок нажмёт кнопку "Скриншот" в чате,
- * прикрепится именно то, что он видел, когда открывал чат, а не сам интерфейс чата.
+ * Снимает скриншот в исходном разрешении экрана в момент открытия чата (пока ещё видно
+ * игровой мир, а не сам GUI) и держит его наготове — если игрок нажмёт кнопку "Скриншот"
+ * в чате, прикрепится именно то, что он видел, когда открывал чат, а не сам интерфейс чата.
+ * <p>
+ * Без даунскейла: при высоком разрешении экрана (1440p/4K) итоговый PNG может весить
+ * несколько мегабайт, а в base64 — ещё на треть больше. См. {@link #MAX_BASE64_LENGTH}
+ * и не забудь, что бэкенд тоже кладёт это в персистентную историю чата на диск
+ * (backend/data/history/*.json) — на хостингах с маленькой дисковой квотой (см. историю
+ * с ENOSPC на Wispbyte) это стоит иметь в виду.
  */
 public final class ScreenshotCapture {
 
-	private static final int TARGET_WIDTH = 400;
-	/** С запасом под base64 (+~33% к размеру) и служебные поля JSON. */
-	private static final int MAX_BASE64_LENGTH = 350_000;
+	/** С запасом под base64 (+~33% к размеру) и служебные поля JSON. Смотри класс-javadoc. */
+	private static final int MAX_BASE64_LENGTH = 15_000_000;
 
 	public record PendingScreenshot(String base64Png, int width, int height) {
 	}
@@ -39,7 +44,7 @@ public final class ScreenshotCapture {
 		return capturing;
 	}
 
-	/** Асинхронно снимает свежий скриншот, заменяя предыдущий, когда будет готов. */
+	/** Асинхронно снимает свежий скриншот в исходном разрешении, заменяя предыдущий, когда будет готов. */
 	public static void captureNow() {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || mc.getMainRenderTarget() == null) {
@@ -47,19 +52,8 @@ public final class ScreenshotCapture {
 		}
 		capturing = true;
 		try {
-			Screenshot.takeScreenshot(mc.getMainRenderTarget(), 1, nativeImage -> {
-				try {
-					int targetHeight = Math.max(1, nativeImage.getHeight() * TARGET_WIDTH / Math.max(1, nativeImage.getWidth()));
-					NativeImage resized = new NativeImage(TARGET_WIDTH, targetHeight, false);
-					nativeImage.resizeSubRectTo(0, 0, nativeImage.getWidth(), nativeImage.getHeight(), resized);
-					nativeImage.close();
-					encodeAndStore(resized, TARGET_WIDTH, targetHeight);
-				} catch (Exception e) {
-					ClanChatMod.LOGGER.error("ClanChat: не удалось обработать скриншот", e);
-					nativeImage.close();
-					capturing = false;
-				}
-			});
+			Screenshot.takeScreenshot(mc.getMainRenderTarget(), 1, nativeImage ->
+					encodeAndStore(nativeImage, nativeImage.getWidth(), nativeImage.getHeight()));
 		} catch (Exception e) {
 			ClanChatMod.LOGGER.error("ClanChat: не удалось снять скриншот", e);
 			capturing = false;

@@ -28,7 +28,6 @@ public class ClanManageScreen extends Screen {
 
 	private final Screen parent;
 	private EditBox inviteBox;
-	private EditBox homeNameBox;
 	private int lastSeenStateVersion = -1;
 
 	public ClanManageScreen(Screen parent) {
@@ -85,29 +84,6 @@ public class ClanManageScreen extends Screen {
 				.bounds(centerX - 24, y, 90, 20).build());
 		y += 30;
 
-		this.addRenderableWidget(Button.builder(Component.literal("— Точки клана —"), b -> {})
-				.bounds(centerX - 180, y, 360, 16).build());
-		y += 20;
-
-		var homes = new ArrayList<>(clan.getHomes().values());
-		homes.sort(java.util.Comparator.comparing(com.optimistopti.clanchat.clan.ClanHome::name));
-		for (var home : homes) {
-			String label = home.name() + " (" + Math.round(home.x()) + ", " + Math.round(home.y()) + ", " + Math.round(home.z()) + ")";
-			this.addRenderableWidget(Button.builder(Component.literal(label), b -> {})
-					.bounds(centerX - 180, y, 200, 20).build());
-			this.addRenderableWidget(Button.builder(Component.literal("Отправить"), b -> sendHomeToChat(home))
-					.bounds(centerX + 24, y, 80, 20).build());
-			this.addRenderableWidget(Button.builder(Component.literal("X"), b -> deleteHome(home.name()))
-					.bounds(centerX + 108, y, 20, 20).build());
-			y += 22;
-		}
-
-		homeNameBox = new EditBox(this.font, centerX - 180, y, 150, 20, Component.literal("Название точки"));
-		this.addRenderableWidget(homeNameBox);
-		this.addRenderableWidget(Button.builder(Component.literal("Добавить (тут)"), b -> addHomeHere())
-				.bounds(centerX - 24, y, 110, 20).build());
-		y += 26;
-
 		this.addRenderableWidget(Button.builder(Component.literal("Покинуть клан"), b -> {
 					ClanChatModClient.sendToServer(ClanAction.LEAVE, new AcceptDeclineC2S());
 					this.minecraft.setScreen(parent);
@@ -155,55 +131,16 @@ public class ClanManageScreen extends Screen {
 		inviteBox.setValue("");
 	}
 
-	private void sendHomeToChat(com.optimistopti.clanchat.clan.ClanHome home) {
-		var dto = new com.optimistopti.clanchat.network.dto.SendMessageC2S();
-		dto.channel = com.optimistopti.clanchat.chat.ChatChannelType.CLAN.name();
-		dto.content = "";
-		dto.attachmentType = com.optimistopti.clanchat.chat.AttachmentType.COORDINATES.name();
-		var data = new com.optimistopti.clanchat.chat.Attachment.CoordinatesData(
-				home.name(), home.dimensionId(), home.x(), home.y(), home.z());
-		dto.attachmentDataJson = com.optimistopti.clanchat.clan.ClanGson.INSTANCE.toJson(data);
-		ClanChatModClient.sendToServer(ClanAction.SEND_MESSAGE, dto);
-	}
-
-	private void deleteHome(String name) {
-		var dto = new com.optimistopti.clanchat.network.dto.HomeNameC2S();
-		dto.name = name;
-		ClanChatModClient.sendToServer(ClanAction.DELETE_HOME, dto);
-	}
-
-	private void addHomeHere() {
-		if (homeNameBox == null || homeNameBox.getValue().isBlank()) {
-			return;
-		}
-		var player = net.minecraft.client.Minecraft.getInstance().player;
-		if (player == null) {
-			return;
-		}
-		var dto = new com.optimistopti.clanchat.network.dto.SetHomeC2S();
-		dto.name = homeNameBox.getValue().trim();
-		dto.dimensionId = player.level().dimension().identifier().toString();
-		dto.x = player.getX();
-		dto.y = player.getY();
-		dto.z = player.getZ();
-		ClanChatModClient.sendToServer(ClanAction.SET_HOME, dto);
-		homeNameBox.setValue("");
-	}
-
 	@Override
 	public void tick() {
 		super.tick();
 		int currentVersion = ClientClanState.INSTANCE.getStateVersion();
 		if (currentVersion != lastSeenStateVersion) {
 			String preservedInvite = inviteBox != null ? inviteBox.getValue() : null;
-			String preservedHomeName = homeNameBox != null ? homeNameBox.getValue() : null;
 			this.clearWidgets();
 			this.init();
 			if (preservedInvite != null && inviteBox != null) {
 				inviteBox.setValue(preservedInvite);
-			}
-			if (preservedHomeName != null && homeNameBox != null) {
-				homeNameBox.setValue(preservedHomeName);
 			}
 		}
 	}
